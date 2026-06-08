@@ -1,0 +1,16 @@
+[package]
+name = "fleet-ensemble"
+version = "0.1.0"
+edition = "2021"
+description = "Conservation-governed multi-agent ensemble — agents coordinate under shared physical constraints"
+license = "MIT"
+repository = "https://github.com/SuperInstance/fleet-ensemble"
+documentation = "https://docs.rs/fleet-ensemble"
+readme = "README.md"
+homepage = "https://github.com/SuperInstance/fleet-ensemble"
+rust-version = "1.70"
+keywords = ["multi-agent", "conservation", "ensemble", "coordination", "simulation"]
+categories = ["science", "simulation", "concurrency"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
