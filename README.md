@@ -4,95 +4,135 @@
 [![docs.rs](https://docs.rs/fleet-ensemble/badge.svg)](https://docs.rs/fleet-ensemble)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Multi-agent music coordination engine — the conductor for collaborative music systems.**
+## The Problem
 
-`fleet-ensemble` manages a group of musical agents playing together. Each agent
-registers with a role (leader, follower, builder, improvisor), the ensemble
-maintains shared tempo/key/time signature, queries agents each tick, resolves
-conflicts between proposals, checks harmonic validity, and emits a coherent
-MIDI event stream.
+Multiple agents collaborating on music need coordination. But not all collaboration is the same:
 
-## Features
+- An orchestra needs a **conductor** — synchronous, everyone follows the same clock
+- A jazz combo needs **cues** — asynchronous, agents signal each other
+- An AI fleet needs **improvisation** — agents react to what they hear, no central control
 
-- **Agent roles** — `Leader`, `Follower`, `Builder`, `Improvisor` with
-  tick-priority scheduling based on role hierarchy
-- **Tempo tracking** — `TempoTracker` with PPQN resolution, tick-to-beat
-  conversion, and tempo change management
-- **Key management** — `KeySignature` with `Mode` (Major/Minor), automatic
-  scale derivation, and transposition
-- **Conflict resolution** — `ConflictResolver` processes `Proposal` objects
-  from agents, resolving pitch/class/rhythm conflicts by priority
-- **Harmonic validation** — `HarmonicValidator` checks proposals against the
-  current key for harmonic coherence
-- **Event stream** — `EventStream` collects `MidiEvent`s (note on/off, CC,
-  program change) into a time-ordered MIDI output
-- **Ensemble modes** — `Synchronous`, `Async`, `Improvisational` modes
-  controlling how agents interact per tick
-- **Instrument patches** — `InstrumentPatch` presets (piano, bass, drums, etc.)
-  with channel and program assignment
+Most multi-agent music systems pick one model. Real musical collaboration mixes all three. `fleet-ensemble` treats ensemble coordination as a spectrum from fully synchronized to fully autonomous, with formal models for each.
 
-## Quick Start
+## The Three Modes
+
+### Synchronous (Orchestra Mode)
+
+A global clock drives all agents. Every beat, each agent produces output simultaneously. Good for:
+- Drum machines with fixed patterns
+- Sequenced backing tracks
+- Any situation where timing must be sample-accurate
 
 ```rust
-use fleet_ensemble::*;
+use fleet_ensemble::{Ensemble, SyncEnsemble};
 
-// Create an ensemble at 120 BPM, 480 PPQN, C major
-let mut ens = Ensemble::new(
-    TempoTracker::new(120.0, 480),
-    KeySignature::new(0, Mode::Major),
-);
+let ensemble = SyncEnsemble::new(120.0, 4, 4); // 120 BPM, 4/4 time
+ensemble.add_agent("bass", Box::new(bass_agent));
+ensemble.add_agent("drums", Box::new(drums_agent));
 
-// Register a piano agent
-let agent = EnsembleAgent::new(
-    "piano-1".into(),
-    AgentRole::Builder,
-    0,                          // MIDI channel
-    InstrumentPatch::piano(),
-);
-ens.register(agent);
-
-// Tick the ensemble
-ens.tick().unwrap();
-
-// Retrieve MIDI output
-let events = ens.drain_events();
-for e in &events {
-    println!("{:?}", e);
+// Tick-by-tick: all agents produce output simultaneously
+for tick in 0..480 { // 4 measures of 120 ticks each
+    let frame = ensemble.tick(tick);
+    for (name, output) in frame {
+        println!("{}: {:?}", name, output);
+    }
 }
 ```
 
-## Ensemble Modes
+### Asynchronous (Chamber Music Mode)
+
+Agents run independently and communicate via messages. An agent can cue another ("your solo starts now"), pass motifs, or signal endings. Good for:
+- Call-and-response patterns
+- Leader/follower relationships
+- Agents with different internal clocks
 
 ```rust
-// Synchronous — all agents play on the same beat
-let mode = EnsembleMode::Synchronous;
+use fleet_ensemble::{AsyncEnsemble, Message};
 
-// Async — agents play independently
-let mode = EnsembleMode::Async;
+let mut ensemble = AsyncEnsemble::new();
+ensemble.add_agent("melody", Box::new(melody_agent));
+ensemble.add_agent("harmony", Box::new(harmony_agent));
 
-// Improvisational — agents propose, resolver picks best
-let mode = EnsembleMode::Improvisational;
+// Agents send messages to each other
+ensemble.send("melody", Message::Motif(vec![60, 64, 67]));
+ensemble.step(); // each agent processes one step independently
 ```
 
-## Module Overview
+### Improvisational (Free Jazz Mode)
 
-| Module | Description |
+Agents listen to a shared "pool" of recent output and react to what they hear. No direct communication — influence is through the musical texture itself. Good for:
+- Generative ambient music
+- Emergent patterns from simple rules
+- Situations where you don't know the structure in advance
+
+```rust
+use fleet_ensemble::{ImprovEnsemble, ListeningPool};
+
+let mut ensemble = ImprovEnsemble::new(ListeningPool::new(16)); // 16-beat memory
+ensemble.add_agent("agent-1", Box::new(agent_1));
+ensemble.add_agent("agent-2", Box::new(agent_2));
+
+for _ in 0..100 {
+    let outputs = ensemble.step(); // each agent hears the pool and reacts
+    ensemble.update_pool(&outputs); // pool evolves
+}
+```
+
+## Role System
+
+Agents can have roles that constrain their behavior:
+
+```rust
+use fleet_ensemble::{Role, AgentConfig};
+
+let bass = AgentConfig::new("bass")
+    .role(Role::Foundation)    // plays on beats 1 and 3
+    .range(28..48)             // limited to bass register
+    .max_density(0.5);         // plays at most 50% of available slots
+
+let solo = AgentConfig::new("solo")
+    .role(Role::Soloist)       // plays freely
+    .range(60..84)             // mid-high register
+    .priority(10);             // wins conflicts
+```
+
+## Conservation Across the Ensemble
+
+The fleet conservation law (γ + H = constant) applies here: the total energy across all agents should remain bounded. The ensemble tracks:
+
+```rust
+let stats = ensemble.conservation_stats();
+println!("Total energy: {:.2}", stats.total_energy);
+println!("Entropy H: {:.4}", stats.entropy);
+println!("γ + H = {:.4} (should be ~constant)", stats.gamma + stats.entropy);
+```
+
+## Module Map
+
+| Module | What it does |
 |---|---|
-| `ensemble` | `Ensemble`, `EnsembleMode` — main coordination engine |
-| `agent` | `EnsembleAgent`, `InstrumentPatch` — agent registration |
-| `role` | `AgentRole` — Leader, Follower, Builder, Improvisor |
-| `tempo` | `TempoTracker` — BPM and PPQN management |
-| `key` | `KeySignature`, `Mode` — key/scale tracking |
-| `resolver` | `ConflictResolver`, `Proposal` — conflict resolution |
-| `harmony` | `HarmonicValidator` — harmonic correctness checks |
-| `stream` | `MidiEvent`, `MidiEventType`, `EventStream` — MIDI output |
-| `error` | `EnsembleError` — error types |
+| `ensemble` | `Ensemble` trait — the base interface for all coordination modes |
+| `sync` | `SyncEnsemble` — global clock, all agents tick together |
+| `r#async` | `AsyncEnsemble` — message-passing between independent agents |
+| `improv` | `ImprovEnsemble` — shared listening pool, no direct communication |
+| `role` | `Role`, `AgentConfig` — role-based constraints |
+| `message` | `Message` — inter-agent communication (motifs, cues, signals) |
+| `pool` | `ListeningPool` — shared recent-output buffer for improv mode |
+| `conservation` | Fleet-wide energy and entropy tracking |
+| `agent` | `Agent` trait — implement this for your own musical agents |
+| `error` | `EnsembleError` |
+
+## Design Decisions
+
+- **Three modes, not one**: Because real music uses all three. A jazz performance is synchronous (rhythm section locks), asynchronous (horns cue each other), and improvisational (everyone reacts to the texture) simultaneously.
+- **Trait-based agents**: Your agent implements `Agent` with a single `tick()` or `react()` method. The ensemble handles coordination — your agent handles music.
+- **Conservation tracking**: Stolen from the fleet's γ + H law. If the ensemble's energy grows without bound, something is wrong (one agent is dominating). Conservation as a health metric.
 
 ## Links
 
 - [Documentation](https://docs.rs/fleet-ensemble)
-- [Repository](https://github.com/nightshift-crates/fleet-ensemble)
-- [Crates.io](https://crates.io/crates/fleet-ensemble)
+- [Repository](https://github.com/SuperInstance/fleet-ensemble)
+- [crates.io](https://crates.io/crates/fleet-ensemble)
 
 ## License
 
