@@ -160,4 +160,20 @@ mod tests {
         let e = Error::EmptyEnsemble;
         assert!(e.to_string().contains("empty"));
     }
+
+    #[test]
+    fn ternary_try_new_rejects_invalid() {
+        // The fallible constructor must surface Error::InvalidTernary instead of
+        // panicking, and must name the first offending value.
+        let err = TernaryVector::try_new(vec![1, 0, 2, -1]).unwrap_err();
+        match err {
+            Error::InvalidTernary(v) => assert_eq!(v, 2),
+            other => panic!("expected InvalidTernary, got {other:?}"),
+        }
+        assert!(err.to_string().contains("2"));
+
+        // Valid input still constructs cleanly.
+        let tv = TernaryVector::try_new(vec![-1, 0, 1]).unwrap();
+        assert_eq!(tv.values, vec![-1, 0, 1]);
+    }
 }

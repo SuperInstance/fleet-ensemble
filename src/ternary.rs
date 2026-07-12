@@ -1,3 +1,4 @@
+use crate::error::Error;
 use serde::{Deserialize, Serialize};
 
 /// A ternary vector with values in {-1, 0, +1}.
@@ -13,12 +14,30 @@ pub struct TernaryVector {
 
 impl TernaryVector {
     /// Create a new ternary vector, validating all values are in {-1, 0, 1}.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any value is not -1, 0, or +1. For a fallible version that
+    /// returns [`Error::InvalidTernary`] instead of panicking, use
+    /// [`TernaryVector::try_new`].
     pub fn new(values: Vec<i32>) -> Self {
-        assert!(
-            values.iter().all(|&v| v == -1 || v == 0 || v == 1),
-            "ternary values must be -1, 0, or +1"
-        );
-        Self { values }
+        Self::try_new(values).expect("ternary values must be -1, 0, or +1")
+    }
+
+    /// Fallible constructor that validates all values are in {-1, 0, 1}.
+    ///
+    /// Returns [`Error::InvalidTernary`] naming the first offending value.
+    /// This is the production-safe entry point for data that may originate
+    /// from untrusted input; prefer it over [`TernaryVector::new`].
+    pub fn try_new(values: Vec<i32>) -> Result<Self, Error> {
+        match values
+            .iter()
+            .copied()
+            .find(|&v| v != -1 && v != 0 && v != 1)
+        {
+            Some(v) => Err(Error::InvalidTernary(v)),
+            None => Ok(Self { values }),
+        }
     }
 
     /// Create without validation (for internal use).
