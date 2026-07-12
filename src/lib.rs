@@ -31,16 +31,16 @@
 
 pub mod agent;
 pub mod budget;
-pub mod governor;
-pub mod error;
 pub mod ensemble;
+pub mod error;
+pub mod governor;
 pub mod ternary;
 
 pub use agent::Agent;
 pub use budget::ConservationBudget;
-pub use governor::Governor;
-pub use error::Error;
 pub use ensemble::Ensemble;
+pub use error::Error;
+pub use governor::Governor;
 pub use ternary::TernaryVector;
 
 #[cfg(test)]
@@ -61,7 +61,11 @@ mod tests {
         let sum: Vec<f64> = (0..2)
             .map(|j| adjusted.iter().map(|a| a[j]).sum())
             .collect();
-        assert!(sum.iter().all(|s| s.abs() < 1e-10), "sum should be ~0: {:?}", sum);
+        assert!(
+            sum.iter().all(|s| s.abs() < 1e-10),
+            "sum should be ~0: {:?}",
+            sum
+        );
     }
 
     #[test]

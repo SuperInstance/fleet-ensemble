@@ -53,7 +53,11 @@ impl Governor {
 
         // Compute the violation: Σ demands - target
         let total = ensemble.total_demand();
-        let violation: Vec<f64> = total.iter().zip(self.budget.target.iter()).map(|(s, t)| s - t).collect();
+        let violation: Vec<f64> = total
+            .iter()
+            .zip(self.budget.target.iter())
+            .map(|(s, t)| s - t)
+            .collect();
 
         // Correction per agent: divide the violation equally
         let correction: Vec<f64> = violation.iter().map(|v| v / n as f64).collect();
@@ -78,9 +82,16 @@ impl Governor {
     /// Project and return the total violation before projection.
     ///
     /// Useful for diagnostics: how far was the ensemble from satisfying conservation?
-    pub fn project_with_diagnostics(&self, ensemble: &Ensemble) -> Result<(Vec<Vec<f64>>, Vec<f64>), Error> {
+    pub fn project_with_diagnostics(
+        &self,
+        ensemble: &Ensemble,
+    ) -> Result<(Vec<Vec<f64>>, Vec<f64>), Error> {
         let total = ensemble.total_demand();
-        let violation: Vec<f64> = total.iter().zip(self.budget.target.iter()).map(|(s, t)| s - t).collect();
+        let violation: Vec<f64> = total
+            .iter()
+            .zip(self.budget.target.iter())
+            .map(|(s, t)| s - t)
+            .collect();
         let adjusted = self.project(ensemble)?;
         Ok((adjusted, violation))
     }

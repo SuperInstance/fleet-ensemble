@@ -10,13 +10,22 @@ fn main() {
 
     // Part 1: Create agents with resource demands
     println!("Part 1: Creating agents");
-    let alice = Agent::new("alice", vec![2.0, 1.0, 0.5]);   // GPU, RAM, Network
+    let alice = Agent::new("alice", vec![2.0, 1.0, 0.5]); // GPU, RAM, Network
     let bob = Agent::new("bob", vec![1.0, 3.0, 1.0]);
     let carol = Agent::new("carol", vec![0.5, 1.0, 2.0]);
-    
-    println!("  Alice: GPU=2.0, RAM=1.0, NET=0.5 (norm={:.2})", alice.norm());
-    println!("  Bob:   GPU=1.0, RAM=3.0, NET=1.0 (norm={:.2})", bob.norm());
-    println!("  Carol: GPU=0.5, RAM=1.0, NET=2.0 (norm={:.2})", carol.norm());
+
+    println!(
+        "  Alice: GPU=2.0, RAM=1.0, NET=0.5 (norm={:.2})",
+        alice.norm()
+    );
+    println!(
+        "  Bob:   GPU=1.0, RAM=3.0, NET=1.0 (norm={:.2})",
+        bob.norm()
+    );
+    println!(
+        "  Carol: GPU=0.5, RAM=1.0, NET=2.0 (norm={:.2})",
+        carol.norm()
+    );
     println!();
 
     // Part 2: Build an ensemble
@@ -25,7 +34,7 @@ fn main() {
     ensemble.add_agent(alice);
     ensemble.add_agent(bob);
     ensemble.add_agent(carol);
-    
+
     let total = ensemble.total_demand();
     println!("  {} agents, total demand: {:?}", ensemble.len(), total);
     println!();
@@ -35,8 +44,8 @@ fn main() {
     let budget = ConservationBudget::zero_sum(3); // all resources sum to zero
     let violation = budget.violation(&ensemble.demands().into_iter().cloned().collect::<Vec<_>>());
     let satisfied = budget.is_satisfied(
-        &ensemble.demands().into_iter().cloned().collect::<Vec<_>>(), 
-        0.01
+        &ensemble.demands().into_iter().cloned().collect::<Vec<_>>(),
+        0.01,
     );
     println!("  Violation vector: {:?}", violation);
     println!("  Budget satisfied: {}", satisfied);
@@ -48,7 +57,7 @@ fn main() {
     let target_budget = ConservationBudget::new(vec![4.0, 5.0, 3.5]);
     let target_sat = target_budget.is_satisfied(
         &ensemble.demands().into_iter().cloned().collect::<Vec<_>>(),
-        0.5
+        0.5,
     );
     println!("  Target: [4.0, 5.0, 3.5]");
     println!("  Actual: {:?}", total);

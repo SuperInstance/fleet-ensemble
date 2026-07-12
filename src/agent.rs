@@ -47,7 +47,12 @@ impl Agent {
     pub fn offset(&self, delta: &[f64]) -> Self {
         Self {
             name: self.name.clone(),
-            demand: self.demand.iter().zip(delta.iter()).map(|(a, b)| a + b).collect(),
+            demand: self
+                .demand
+                .iter()
+                .zip(delta.iter())
+                .map(|(a, b)| a + b)
+                .collect(),
         }
     }
 }

@@ -1,4 +1,4 @@
-use fleet_ensemble::{Ensemble, Agent, ConservationBudget, Governor, TernaryVector};
+use fleet_ensemble::{Agent, ConservationBudget, Ensemble, Governor, TernaryVector};
 
 fn main() {
     println!("=== Fleet Ensemble: Conservation-Governed Coordination ===\n");

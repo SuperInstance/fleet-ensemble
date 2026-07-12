@@ -14,8 +14,10 @@ pub struct TernaryVector {
 impl TernaryVector {
     /// Create a new ternary vector, validating all values are in {-1, 0, 1}.
     pub fn new(values: Vec<i32>) -> Self {
-        assert!(values.iter().all(|&v| v == -1 || v == 0 || v == 1),
-            "ternary values must be -1, 0, or +1");
+        assert!(
+            values.iter().all(|&v| v == -1 || v == 0 || v == 1),
+            "ternary values must be -1, 0, or +1"
+        );
         Self { values }
     }
 

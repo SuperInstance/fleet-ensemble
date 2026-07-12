@@ -48,7 +48,10 @@ impl ConservationBudget {
                 sum[j] += val;
             }
         }
-        sum.iter().zip(self.target.iter()).map(|(s, t)| s - t).collect()
+        sum.iter()
+            .zip(self.target.iter())
+            .map(|(s, t)| s - t)
+            .collect()
     }
 
     /// Check whether a set of demands satisfies the budget within tolerance.
