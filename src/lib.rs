@@ -176,4 +176,23 @@ mod tests {
         let tv = TernaryVector::try_new(vec![-1, 0, 1]).unwrap();
         assert_eq!(tv.values, vec![-1, 0, 1]);
     }
+
+    #[test]
+    fn total_demand_handles_ragged_dimensions_without_panicking() {
+        // total_demand() is public and must not index out of bounds when agents
+        // have differing lengths. It sizes to the widest agent and sums each
+        // agent's full demand (narrower agents contribute zero to extra dims).
+        let mut ens = Ensemble::new();
+        ens.add_agent(Agent::new("wide", vec![1.0, 2.0, 3.0]));
+        ens.add_agent(Agent::new("narrow", vec![10.0])); // shorter than agents[0]
+
+        let total = ens.total_demand();
+        assert_eq!(total, vec![11.0, 2.0, 3.0]);
+
+        // Reverse order: a narrow first agent, then a wide one — also must not panic.
+        let mut ens2 = Ensemble::new();
+        ens2.add_agent(Agent::new("narrow", vec![10.0]));
+        ens2.add_agent(Agent::new("wide", vec![1.0, 2.0, 3.0]));
+        assert_eq!(ens2.total_demand(), vec![11.0, 2.0, 3.0]);
+    }
 }

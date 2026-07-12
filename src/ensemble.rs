@@ -42,13 +42,16 @@ impl Ensemble {
     }
 
     /// Total demand (sum of all agents' demand vectors).
+    ///
+    /// The result is sized to the widest agent; narrower agents contribute zero
+    /// to the extra dimensions. This never panics on ragged (mismatched)
+    /// agent dimensions. [`Governor::project`] validates uniform dimensions
+    /// against the budget before relying on this.
     pub fn total_demand(&self) -> Vec<f64> {
-        if self.agents.is_empty() {
-            return Vec::new();
-        }
-        let dim = self.agents[0].dim();
+        let dim = self.agents.iter().map(|a| a.dim()).max().unwrap_or(0);
         let mut total = vec![0.0; dim];
         for agent in &self.agents {
+            // agent.dim() <= dim == total.len(), so every index is in bounds.
             for (j, val) in agent.demand.iter().enumerate() {
                 total[j] += val;
             }
