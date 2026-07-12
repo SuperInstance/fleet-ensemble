@@ -25,7 +25,7 @@
 //! let budget = ConservationBudget::new(vec![0.0, 0.0, 0.0]); // zero-sum: total must be zero
 //! let governor = Governor::new(budget);
 //!
-//! let adjusted = governor.project(&ensemble);
+//! let adjusted = governor.project(&ensemble).unwrap();
 //! println!("Adjusted demands: {:?}", adjusted);
 //! ```
 
@@ -55,7 +55,7 @@ mod tests {
 
         let budget = ConservationBudget::zero_sum(2);
         let gov = Governor::new(budget);
-        let adjusted = gov.project(&ens);
+        let adjusted = gov.project(&ens).unwrap();
 
         // Sum of adjusted demands should be approximately zero
         let sum: Vec<f64> = (0..2)
@@ -71,7 +71,7 @@ mod tests {
 
         let budget = ConservationBudget::new(vec![0.0, 0.0, 0.0]);
         let gov = Governor::new(budget);
-        let adjusted = gov.project(&ens);
+        let adjusted = gov.project(&ens).unwrap();
 
         // Single agent: demand should be projected to zero
         assert!(adjusted[0].iter().all(|v| v.abs() < 1e-10));
@@ -82,7 +82,7 @@ mod tests {
         let mut ens = Ensemble::new();
         for i in 0..5 {
             ens.add_agent(Agent::new(
-                &format!("agent_{}", i),
+                format!("agent_{}", i),
                 vec![(i as f64 - 2.0) * 0.5, (i as f64 - 1.0) * 0.3],
             ));
         }
@@ -90,7 +90,7 @@ mod tests {
         let target = vec![1.0, -0.5];
         let budget = ConservationBudget::new(target.clone());
         let gov = Governor::new(budget);
-        let adjusted = gov.project(&ens);
+        let adjusted = gov.project(&ens).unwrap();
 
         let sum: Vec<f64> = (0..target.len())
             .map(|j| adjusted.iter().map(|a| a[j]).sum())
@@ -103,9 +103,11 @@ mod tests {
 
     #[test]
     fn ternary_vector_operations() {
+        // [1,0,-1,1,0,-1,1,1]: 6 of 8 entries are non-zero → density 0.75;
+        // four +1 and two -1 → balance (4-2)/8 = 0.25.
         let tv = TernaryVector::new(vec![1, 0, -1, 1, 0, -1, 1, 1]);
         assert_eq!(tv.len(), 8);
-        assert!((tv.density() - 0.625).abs() < 1e-10);
+        assert!((tv.density() - 0.75).abs() < 1e-10);
         assert!((tv.balance() - 0.25).abs() < 1e-10);
     }
 
@@ -139,7 +141,7 @@ mod tests {
 
         let budget = ConservationBudget::zero_sum(2);
         let gov = Governor::new(budget);
-        let adjusted = gov.project(&ens);
+        let adjusted = gov.project(&ens).unwrap();
 
         // Already satisfies zero-sum: adjusted ≈ original
         for (adj, orig) in adjusted.iter().zip(ens.agents().iter()) {

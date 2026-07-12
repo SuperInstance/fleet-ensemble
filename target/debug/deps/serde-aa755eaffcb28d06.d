@@ -1,0 +1,12 @@
+/tmp/claude-1000/-home-eileen/c25f18c4-8752-45a5-bacc-1c3e70a86ab7/scratchpad/round14/fleet-ensemble/target/debug/deps/serde-aa755eaffcb28d06.d: /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /tmp/claude-1000/-home-eileen/c25f18c4-8752-45a5-bacc-1c3e70a86ab7/scratchpad/round14/fleet-ensemble/target/debug/build/serde-037cb4c169da85ec/out/private.rs
+
+/tmp/claude-1000/-home-eileen/c25f18c4-8752-45a5-bacc-1c3e70a86ab7/scratchpad/round14/fleet-ensemble/target/debug/deps/libserde-aa755eaffcb28d06.rmeta: /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /tmp/claude-1000/-home-eileen/c25f18c4-8752-45a5-bacc-1c3e70a86ab7/scratchpad/round14/fleet-ensemble/target/debug/build/serde-037cb4c169da85ec/out/private.rs
+
+/home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/eileen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/tmp/claude-1000/-home-eileen/c25f18c4-8752-45a5-bacc-1c3e70a86ab7/scratchpad/round14/fleet-ensemble/target/debug/build/serde-037cb4c169da85ec/out/private.rs:
+
+# env-dep:OUT_DIR=/tmp/claude-1000/-home-eileen/c25f18c4-8752-45a5-bacc-1c3e70a86ab7/scratchpad/round14/fleet-ensemble/target/debug/build/serde-037cb4c169da85ec/out
