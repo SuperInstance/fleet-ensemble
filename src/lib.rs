@@ -195,4 +195,89 @@ mod tests {
         ens2.add_agent(Agent::new("wide", vec![1.0, 2.0, 3.0]));
         assert_eq!(ens2.total_demand(), vec![11.0, 2.0, 3.0]);
     }
+
+    #[test]
+    fn governor_rejects_empty_ensemble() {
+        let ens = Ensemble::new();
+        let gov = Governor::new(ConservationBudget::zero_sum(2));
+        match gov.project(&ens) {
+            Err(Error::EmptyEnsemble) => {}
+            other => panic!("expected EmptyEnsemble, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn governor_rejects_dimension_mismatch() {
+        let mut ens = Ensemble::new();
+        ens.add_agent(Agent::new("a", vec![1.0, 0.0])); // dim 2
+        ens.add_agent(Agent::new("b", vec![1.0, 0.0, 0.0])); // dim 3 != budget dim
+
+        let gov = Governor::new(ConservationBudget::zero_sum(2));
+        match gov.project(&ens) {
+            Err(Error::DimensionMismatch { expected, got }) => {
+                assert_eq!((expected, got), (2, 3));
+            }
+            other => panic!("expected DimensionMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn governor_diagnostics_returns_pre_projection_violation() {
+        let mut ens = Ensemble::new();
+        ens.add_agent(Agent::new("a", vec![5.0]));
+        ens.add_agent(Agent::new("b", vec![5.0]));
+
+        // Target total 10.0; raw sum is 10.0 ⇒ violation 0.0, no correction.
+        let gov = Governor::new(ConservationBudget::new(vec![10.0]));
+        let (adjusted, violation) = gov.project_with_diagnostics(&ens).unwrap();
+        assert!(violation.iter().all(|v| v.abs() < 1e-12));
+        assert!(adjusted.iter().all(|a| (a[0] - 5.0).abs() < 1e-12));
+
+        // Non-trivial violation: target 0.0, raw sum 10.0 ⇒ violation 10.0,
+        // corrected equally ⇒ each agent adjusted to 0.0.
+        let gov0 = Governor::new(ConservationBudget::zero_sum(1));
+        let (adjusted, violation) = gov0.project_with_diagnostics(&ens).unwrap();
+        assert!((violation[0] - 10.0).abs() < 1e-12);
+        assert!(adjusted.iter().all(|a| a[0].abs() < 1e-12));
+    }
+
+    #[test]
+    fn agent_helpers_are_correct() {
+        let a = Agent::new("a", vec![3.0, 4.0]);
+        assert_eq!(a.dim(), 2);
+        assert!((a.norm() - 5.0).abs() < 1e-12); // 3-4-5 triangle
+
+        let doubled = a.scale(2.0);
+        assert_eq!(doubled.demand, vec![6.0, 8.0]);
+        assert_eq!(doubled.name, "a");
+
+        let shifted = a.offset(&[1.0, -1.0]);
+        assert_eq!(shifted.demand, vec![4.0, 3.0]);
+    }
+
+    #[test]
+    fn budget_violation_and_satisfaction() {
+        let budget = ConservationBudget::new(vec![1.0, -1.0]);
+        assert_eq!(budget.dim(), 2);
+
+        // Two agents: sums to [2.0, -2.0]; violation = [1.0, -1.0].
+        let demands = vec![vec![1.5, -1.5], vec![0.5, -0.5]];
+        assert_eq!(budget.violation(&demands), vec![1.0, -1.0]);
+        assert!(!budget.is_satisfied(&demands, 0.5));
+        assert!(budget.is_satisfied(&demands, 1.0)); // exactly at tolerance
+    }
+
+    #[test]
+    fn ternary_to_demand_and_edges() {
+        let tv = TernaryVector::new(vec![1, -1, 0]);
+        assert_eq!(tv.to_demand(), vec![1.0, -1.0, 0.0]);
+
+        // Empty vector edge cases must not divide by zero.
+        let empty = TernaryVector::new(vec![]);
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+        assert!(empty.density().abs() < 1e-12);
+        assert!(empty.balance().abs() < 1e-12);
+        assert_eq!(empty.to_notes(60), vec![60]); // only the base pitch
+    }
 }
