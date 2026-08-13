@@ -89,8 +89,18 @@ The director maintains a five-level perceptual model, updated per pulse:
 | **Centroid** | `C(t)` | `C(t) = ⅟ₙ Σ vᵢ(t)` | Where the ensemble IS right now—the center of gravity of the music |
 | **Dispersion** | `D(t)` | `D(t) = ⅟ₙ Σ ‖vᵢ(t) - C(t)‖` | How spread out the instruments are. Low = locked-in, unified. High = chaotic, soloistic. |
 | **Velocity** | `ΔC(t)` | `ΔC(t) = C(t) - C(t-1)` | Direction of the collective. Where is the music heading? |
-| **Rotational Flux** | `Ω(t)` | `Σ ⟨vᵢ - C, Δ(vᵢ - C)⟩` | The "swirl." Are instruments orbiting a shared idea, or converging on one? High flux = creative tension. |
+| **Radial Divergence** | `Ω(t)` | `Σ ⟨vᵢ - C, Δ(vᵢ - C)⟩` | The "swell." Are instruments dispersing or converging? Positive = expanding, negative = contracting. Note: this measures radial divergence, NOT angular momentum (see math review note below). |
 | **Temporal Coherence** | `K(t)` | Fourier stability of `C(t)` over a 32-pulse sliding window | Groove stability. Is the pocket solid, or shifting? |
+
+> **⚠️ Math Review Note (Aug 2026) — "Rotational Flux" is actually radial divergence:**
+>
+> The formula Ω(t) = Σᵢ ⟨rᵢ, Δrᵢ⟩ = ½ Σᵢ Δ‖rᵢ‖² measures the *discrete divergence* of the velocity field relative to the centroid — the rate of expansion or contraction. It is **not** angular momentum or rotational flux.
+>
+> - Ω > 0: instruments dispersing (expanding)
+> - Ω < 0: instruments converging (contracting)
+> - Ω ≈ 0: either no motion *or* pure rotation (these are indistinguishable with this formula!)
+>
+> True angular momentum in 2D would be Σᵢ (xᵢ ẏᵢ − yᵢ ẋᵢ), the antisymmetric part of the velocity gradient. The current formula captures only the symmetric (radial) component. Renamed from "Rotational Flux" to "Radial Divergence" to reflect what it actually measures.
 
 ### 1.3 The Director's Internal Model
 
@@ -422,15 +432,17 @@ where N = number of instruments, d = embedding dimension. Row `i` is instrument 
 
 The tilt is a **time-varying, state-dependent vector field** `V(x, t)` defined over the embedding space. It is not a single transformation—it is a composition of three geometric operations, each controlled by feel parameters:
 
-#### Operation 1: Harmonic Rotation (controlled by σ)
+#### Operation 1: Harmonic Stiffness (controlled by σ)
 
-A rotation `R_σ` in the harmonic subspace of the embedding space. This tilts the canvas so "downhill" points toward new harmonic centers:
+A symmetric positive-definite (SPD) stiffness matrix `K_σ` in the harmonic subspace of the embedding space. This tilts the canvas so "downhill" points toward new harmonic centers:
 
 ```
-X'_harmonic = X + α · R_σ · (X - C(t))
+X'_harmonic = X - α · K_σ · (X - C(t))
 ```
 
-Where `R_σ` is a rotation matrix in the planes spanned by harmonic-tension dimensions of the JEPA space. Positive σ rotates toward consonance; negative σ rotates toward dissonance.
+Where `K_σ` is a diagonal stiffness matrix in the harmonic-tension dimensions of the JEPA space. Each diagonal entry sets the spring tension pulling performers back toward the target centroid `C`. Positive σ increases consonance pull; negative σ decreases it. The **negative sign** is critical: it creates a restoring force toward `C`, not a repulsive force away from it.
+
+> **Note (math review Aug 2026):** A previous version used `R_σ` (a rotation matrix) in this position. This was a category error: a rotation matrix has eigenvalues on the unit circle, so the associated quadratic form is indefinite and the Gibbs measure is not normalizable. The correct object is an SPD stiffness matrix `K_σ`. The sign was also wrong (`+α` pushes away from `C`); the corrected drift uses `-α` for a restoring force.
 
 #### Operation 2: Diffusive Coupling (controlled by γ)
 
@@ -467,16 +479,16 @@ Where `g(τ)` stretches/compresses temporal perception and `η(t)` is bounded no
 The instruments' embeddings evolve according to the stochastic differential equation:
 
 ```
-dX/dt = α · [ R_σ · (X - C)  +  γ · L(X) ]  +  λ · dW
+dX/dt = -α · [ K_σ · (X - C)  -  γ · L(X) ]  +  λ · dW
 ```
 
 Where:
-- `R_σ` = rotation in harmonic subspace (tilt direction)
+- `K_σ` = SPD stiffness matrix in harmonic subspace (restoring force toward target)
 - `L(X)` = graph Laplacian (coupling/heat diffusion)
 - `dW` = Brownian noise (exploration)
 - `α` = global learning rate (viscosity of the canvas)
 
-**Crucially:** The director does **not** set `X`. It sets the **parameters** `(R_σ, γ, λ, α, g(τ), ρ)`. The instruments then flow according to the dynamics defined by this potential field. The director modulates the *Hamiltonian* of the system, not the *trajectory*.
+**Crucially:** The director does **not** set `X`. It sets the **parameters** `(K_σ, γ, λ, α, g(τ), ρ)`. The instruments then flow according to the dynamics defined by this potential field. The director modulates the *Hamiltonian* of the system, not the *trajectory*.
 
 ### 7.4 The Potential Field Interpretation
 
@@ -508,7 +520,7 @@ The analogy to actual paint on a liquid surface is precise:
 | Gravity (tilt angle) | `α` (global learning rate) |
 | Surface tension | `γ` (coupling—how much instruments cohere) |
 | Viscosity | Instrument stubbornness (resistance to tilt) |
-| Marangoni effect (flow driven by surface tension gradients) | `R_σ` rotation (flow driven by harmonic tension gradients) |
+| Marangoni effect (flow driven by surface tension gradients) | `K_σ` stiffness (flow driven by harmonic tension gradients) |
 | Brownian motion of particles | `λ · dW` (stochastic exploration) |
 | Drying time | Temporal smoothing constant `α_smooth` |
 | Color density | Energy parameter `ε` |
@@ -518,15 +530,17 @@ The analogy to actual paint on a liquid surface is precise:
 
 The unified dynamics equation
 
-$$dX_t = \alpha \left[ R_\sigma (X_t - C) + \gamma L X_t \right] dt + \lambda dW_t$$
+$$dX_t = -\alpha \left[ K_\sigma (X_t - C) - \gamma L X_t \right] dt + \lambda dW_t$$
 
 is an [Itô stochastic differential equation](https://en.wikipedia.org/wiki/It%C3%B4_calculus). Each term has a precise mathematical identity and a conducting interpretation.
 
+> **Note (math review Aug 2026):** The original version of this document used `R_σ` (a rotation matrix) instead of `K_σ` (an SPD stiffness matrix). This was mathematically incorrect: a rotation matrix yields an indefinite quadratic form, making the Gibbs measure non-normalizable. The corrected version uses `K_σ ≻ 0` (symmetric positive-definite), which ensures the stationary distribution exists. The sign convention has also been corrected: the drift now has a negative sign (`-α K_σ(X-C)`) so that `K_σ` acts as a true restoring force toward `C`, not away from it. For the Gibbs measure result, see Pavliotis (2014), *Stochastic Processes and Applications*, or Risken (1996), *The Fokker-Planck Equation*.
+
 #### Term 1: Drift — Harmonic Attraction
 
-The `α · R_σ · (X - C)` term is a linear [Ornstein-Uhlenbeck](https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process) restoring force. `C` is the canonical target state (the director's interpretation of the score). `R_σ` is a diagonal stiffness matrix where each entry sets the spring tension pulling performer `i` back to the target. This is never uniform: low tension for soloists (allowing expressive drift), high tension for the rhythm section (locking the ensemble anchor). Left to itself, this term relaxes all performers exponentially to `C` — this is what you adjust when you give a sharp beat or a vague expressive cue.
+The `-α · K_σ · (X - C)` term is a linear [Ornstein-Uhlenbeck](https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process) restoring force. `C` is the canonical target state (the director's interpretation of the score). `K_σ` is a symmetric positive-definite (SPD) stiffness matrix where each diagonal entry sets the spring tension pulling performer `i` back to the target. This is never uniform: low tension for soloists (allowing expressive drift), high tension for the rhythm section (locking the ensemble anchor). Left to itself, this term relaxes all performers exponentially to `C` — this is what you adjust when you give a sharp beat or a vague expressive cue.
 
-For the mathematically inclined: this is a [spring-damper system](https://en.wikipedia.org/wiki/Harmonic_oscillator#Damped_harmonic_oscillator) in `d`-dimensional embedding space, where the spring constant matrix `R_σ` is anisotropic — different dimensions (harmonic, rhythmic, timbral) have different stiffness.
+For the mathematically inclined: this is a [spring-damper system](https://en.wikipedia.org/wiki/Harmonic_oscillator#Damped_harmonic_oscillator) in `d`-dimensional embedding space, where the spring constant matrix `K_σ` is anisotropic — different dimensions (harmonic, rhythmic, timbral) have different stiffness.
 
 #### Term 2: Coupling — Graph Laplacian Flocking
 
@@ -540,7 +554,7 @@ The `λ · dW` term is independent [Itô Wiener noise](https://en.wikipedia.org/
 
 [Itô calculus](https://en.wikipedia.org/wiki/It%C3%B4%27s_lemma) proves this noise does not average away: small individual variations are amplified by the coupling term into collective texture. The [Itô integral](https://en.wikipedia.org/wiki/It%C3%B4_calculus#It%C3%B4_integral) `∫ λ dW` has expectation zero but nonzero quadratic variation — meaning the randomness creates real, persistent structure in the trajectory, not just blur. You adjust `λ` by how much permission you give players to deviate. Silence, stillness, and trust raise `λ`. Over-conducting crushes it to zero.
 
-For a rigorous treatment of SDEs in this form, see [Øksendal, *Stochastic Differential Equations* (2003)](https://link.springer.com/book/10.1007/978-3-642-14394-6), the standard reference text.
+For a rigorous treatment of SDEs in this form, see [Øksendal, *Stochastic Differential Equations* (2003)](https://link.springer.com/book/10.1007/978-3-642-14394-6) for existence and uniqueness. For the Gibbs stationary distribution and Fokker-Planck derivation, see [Pavliotis (2014), *Stochastic Processes and Applications*](https://link.springer.com/book/10.1007/978-1-4939-1323-7) or [Risken (1996), *The Fokker-Planck Equation*](https://link.springer.com/book/10.1007/978-3-642-61594-3).
 
 #### Existence and Uniqueness
 
@@ -552,7 +566,7 @@ This is the good news: **you cannot break this system.** There are no singularit
 
 After approximately three relaxation times, the system forgets all initial conditions and converges to a unique stationary [Gibbs measure](https://en.wikipedia.org/wiki/Gibbs_measure), derived from the [Fokker-Planck equation](https://en.wikipedia.org/wiki/Fokker%E2%80%93Planck_equation):
 
-$$p(X) \propto \exp\left( -\frac{\alpha}{\lambda^2} \left[ \frac{1}{2}(X-C)^T R_\sigma (X-C) + \frac{\gamma}{2} X^T L X \right] \right)$$
+$$p(X) \propto \exp\left( -\frac{\alpha}{\lambda^2} \left[ \frac{1}{2}(X-C)^T K_\sigma (X-C) + \frac{\gamma}{2} X^T L X \right] \right)$$
 
 This is the most important result in this document. **You do not force the ensemble to land exactly on `C`.** You sculpt this probability landscape. You make good performances *probable*, and bad performances *impossible*. Great directing is not about enforcing perfect replication of the target. It is about shaping this distribution so that every point in the high-probability region is a good performance.
 
@@ -817,7 +831,7 @@ How do we know the director is good?
 
 ## 13. Open Questions
 
-1. **How many JEPA dimensions are harmonic vs. rhythmic vs. timbral?** Need to train JEPA-MIDI first and analyze the learned subspace structure. The tilt's rotation matrix `R_σ` depends on knowing which dimensions to rotate.
+1. **How many JEPA dimensions are harmonic vs. rhythmic vs. timbral?** Need to train JEPA-MIDI first and analyze the learned subspace structure. The tilt's stiffness matrix `K_σ` depends on knowing which dimensions to control.
 
 2. **Can the Maestro be trained without paired (MIDI → conducting gesture) data?** Alternative: train on (MIDI → perceived tension/energy labels) from musicologists. Less direct but more scalable.
 

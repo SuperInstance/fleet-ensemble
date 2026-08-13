@@ -16,5 +16,15 @@ axum = "0.8"
 dashmap = "6"
 futures = "0.3"
 
+# Real-time MIDI I/O (optional). When enabled, provides live MIDI input/output
+# via the `midir` crate. Without this feature, only SMF file parsing (midly)
+# and the MidiStream abstraction are available.
+midir = { version = "0.5", optional = true }
+thiserror = "2"
+
 [dev-dependencies]
 approx = "0.5"
+
+[features]
+# Enable real-time MIDI input/output via midir (for live hardware MIDI devices)
+realtime-midi = ["dep:midir"]

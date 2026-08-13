@@ -21,8 +21,184 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::cmp::Ordering;
 
 use super::EMBEDDING_DIM;
+
+
+/// Priority level for CNS packets.
+///
+/// The CNS bus uses a single FIFO broadcast channel, which creates a priority
+/// inversion risk: a burst of `AgentPlayed` packets (low priority, bursty)
+/// can delay `FeelTilt` packets (high priority, timing-critical).
+///
+/// [`PriorityReceiver`] wraps a `broadcast::Receiver<CnsPacket>` and sorts
+/// packets by priority before delivering them to the instrument's main loop.
+///
+/// Priority assignment:
+/// - **Critical**: `FeelTilt` — director timing reference, every pulse
+/// - **High**: `AgentPlayed` — reflex triggers need <10ms latency
+/// - **Normal**: everything else (embeddings, drift, intents)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum PacketPriority {
+    Normal = 0,
+    High = 1,
+    Critical = 2,
+}
+
+impl PacketType {
+    /// Get the dispatch priority for this packet type.
+    ///
+    /// See [`PacketPriority`] for rationale.
+    pub fn priority(&self) -> PacketPriority {
+        match self {
+            PacketType::FeelTilt => PacketPriority::Critical,
+            PacketType::AgentPlayed => PacketPriority::High,
+            _ => PacketPriority::Normal,
+        }
+    }
+}
+
+impl CnsPacket {
+    /// Get the priority level for this packet.
+    pub fn priority(&self) -> PacketPriority {
+        match self {
+            CnsPacket::FeelTilt { .. } => PacketPriority::Critical,
+            CnsPacket::AgentPlayed { .. } => PacketPriority::High,
+            _ => PacketPriority::Normal,
+        }
+    }
+
+    /// Get the packet type enum for this packet.
+    pub fn packet_type(&self) -> PacketType {
+        match self {
+            CnsPacket::FeelTilt { .. } => PacketType::FeelTilt,
+            CnsPacket::IntentBroadcast { .. } => PacketType::IntentBroadcast,
+            CnsPacket::AgentPlayed { .. } => PacketType::AgentPlayed,
+            CnsPacket::EmbeddingBroadcast { .. } => PacketType::EmbeddingBroadcast,
+            CnsPacket::PredictionError { .. } => PacketType::PredictionError,
+            CnsPacket::AgentDrift { .. } => PacketType::AgentDrift,
+            CnsPacket::PhraseIntent { .. } => PacketType::PhraseIntent,
+            CnsPacket::RoleOffer { .. } => PacketType::RoleOffer,
+        }
+    }
+}
+
+/// A priority-ordered wrapper for packets in a receiver's queue.
+#[derive(Debug, Clone)]
+struct PrioritizedPacket {
+    priority: PacketPriority,
+    seq: u64, // monotonic sequence for FIFO within same priority
+    packet: CnsPacket,
+}
+
+impl PartialEq for PrioritizedPacket {
+    fn eq(&self, other: &Self) -> bool {
+        self.seq == other.seq
+    }
+}
+
+impl Eq for PrioritizedPacket {}
+
+impl PartialOrd for PrioritizedPacket {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PrioritizedPacket {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Higher priority first; within same priority, lower seq first (FIFO)
+        other.priority.cmp(&self.priority).then(self.seq.cmp(&other.seq))
+    }
+}
+
+/// Priority-aware receiver that wraps tokio's broadcast receiver.
+///
+/// Instead of a flat FIFO, this drains available packets from the broadcast
+/// channel and delivers them in priority order. This prevents a burst of
+/// low-priority packets from blocking timing-critical FeelTilt delivery.
+///
+/// Usage:
+/// ```text
+/// let mut prio_rx = PriorityReceiver::new(rx);
+/// while let Some(pkt) = prio_rx.recv_ordered().await {
+///     // packets arrive highest-priority first
+/// }
+/// ```
+pub struct PriorityReceiver {
+    inner: tokio::sync::broadcast::Receiver<CnsPacket>,
+    seq_counter: u64,
+}
+
+impl PriorityReceiver {
+    /// Wrap a broadcast receiver with priority sorting.
+    pub fn new(rx: tokio::sync::broadcast::Receiver<CnsPacket>) -> Self {
+        Self { inner: rx, seq_counter: 0 }
+    }
+
+    /// Drain all currently-buffered packets and return them in priority order.
+    ///
+    /// This does a non-blocking drain of the broadcast channel's buffer,
+    /// sorts by priority, and returns the sorted vec. If the channel is
+    /// empty, returns an empty vec.
+    pub fn drain_ordered(&mut self) -> Vec<CnsPacket> {
+        let mut buffered: Vec<PrioritizedPacket> = Vec::new();
+
+        loop {
+            match self.inner.try_recv() {
+                Ok(pkt) => {
+                    let priority = pkt.priority();
+                    let seq = self.seq_counter;
+                    self.seq_counter += 1;
+                    buffered.push(PrioritizedPacket { priority, seq, packet: pkt });
+                }
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+                Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+                Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+            }
+        }
+
+        // Sort: highest priority first, then FIFO within same priority
+        buffered.sort();
+
+        buffered.into_iter().map(|p| p.packet).collect()
+    }
+
+    /// Async receive: wait for at least one packet, then drain and sort.
+    ///
+    /// Returns None if the channel is closed.
+    pub async fn recv_ordered(&mut self) -> Option<Vec<CnsPacket>> {
+        // Block on the first packet
+        match self.inner.recv().await {
+            Ok(first_pkt) => {
+                let priority = first_pkt.priority();
+                let seq = self.seq_counter;
+                self.seq_counter += 1;
+                let mut buffered = vec![PrioritizedPacket { priority, seq, packet: first_pkt }];
+
+                // Non-blocking drain of any remaining buffered packets
+                loop {
+                    match self.inner.try_recv() {
+                        Ok(pkt) => {
+                            let priority = pkt.priority();
+                            let seq = self.seq_counter;
+                            self.seq_counter += 1;
+                            buffered.push(PrioritizedPacket { priority, seq, packet: pkt });
+                        }
+                        Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+                        Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+                        Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+                    }
+                }
+
+                buffered.sort();
+                Some(buffered.into_iter().map(|p| p.packet).collect())
+            }
+            Err(_) => None,
+        }
+    }
+}
 
 /// Packet type IDs.
 #[repr(u8)]
@@ -355,5 +531,107 @@ mod tests {
     #[test]
     fn emergence_flag_default_is_none() {
         assert_eq!(EmergenceFlag::default(), EmergenceFlag::None);
+    }
+
+    // ─── Priority Queueing Tests ──────────────────────────────────
+
+    #[test]
+    fn feel_tilt_is_critical_priority() {
+        let pkt = CnsPacket::FeelTilt {
+            timestamp_us: 0,
+            seq: 0,
+            tilt: FeelTiltPayload::default(),
+        };
+        assert_eq!(pkt.priority(), PacketPriority::Critical);
+    }
+
+    #[test]
+    fn agent_played_is_high_priority() {
+        let pkt = CnsPacket::AgentPlayed {
+            sender_id: 1,
+            timestamp_us: 0,
+            pitch: 60,
+            velocity: 100,
+        };
+        assert_eq!(pkt.priority(), PacketPriority::High);
+    }
+
+    #[test]
+    fn embedding_broadcast_is_normal_priority() {
+        let pkt = CnsPacket::EmbeddingBroadcast {
+            sender_id: 1,
+            timestamp_us: 0,
+            embedding: vec![0.0; EMBEDDING_DIM],
+        };
+        assert_eq!(pkt.priority(), PacketPriority::Normal);
+    }
+
+    #[test]
+    fn priority_ordering_is_correct() {
+        assert!(PacketPriority::Critical > PacketPriority::High);
+        assert!(PacketPriority::High > PacketPriority::Normal);
+    }
+
+    #[test]
+    fn priority_receiver_drains_ordered() {
+        let (tx, rx) = tokio::sync::broadcast::channel(64);
+
+        // Send a burst: Normal, then Critical, then High
+        let _ = tx.send(CnsPacket::EmbeddingBroadcast {
+            sender_id: 1,
+            timestamp_us: 0,
+            embedding: vec![],
+        });
+        let _ = tx.send(CnsPacket::FeelTilt {
+            timestamp_us: 1,
+            seq: 1,
+            tilt: FeelTiltPayload::default(),
+        });
+        let _ = tx.send(CnsPacket::AgentPlayed {
+            sender_id: 2,
+            timestamp_us: 2,
+            pitch: 60,
+            velocity: 100,
+        });
+
+        let mut prio_rx = PriorityReceiver::new(rx);
+        let drained = prio_rx.drain_ordered();
+
+        // Should arrive in priority order: Critical, High, Normal
+        assert_eq!(drained.len(), 3);
+        assert!(matches!(drained[0], CnsPacket::FeelTilt { .. }));
+        assert!(matches!(drained[1], CnsPacket::AgentPlayed { .. }));
+        assert!(matches!(drained[2], CnsPacket::EmbeddingBroadcast { .. }));
+    }
+
+    #[test]
+    fn priority_receiver_preserves_fifo_within_same_priority() {
+        let (tx, rx) = tokio::sync::broadcast::channel(64);
+
+        // Send two Normal-priority packets
+        let _ = tx.send(CnsPacket::EmbeddingBroadcast {
+            sender_id: 1,
+            timestamp_us: 100,
+            embedding: vec![],
+        });
+        let _ = tx.send(CnsPacket::EmbeddingBroadcast {
+            sender_id: 2,
+            timestamp_us: 200,
+            embedding: vec![],
+        });
+
+        let mut prio_rx = PriorityReceiver::new(rx);
+        let drained = prio_rx.drain_ordered();
+
+        assert_eq!(drained.len(), 2);
+        // FIFO: sender_id=1 should come first
+        match &drained[0] {
+            CnsPacket::EmbeddingBroadcast { sender_id, .. } => assert_eq!(*sender_id, 1),
+            _ => panic!("wrong packet"),
+        }
+        match &drained[1] {
+            CnsPacket::EmbeddingBroadcast { sender_id, .. } => assert_eq!(*sender_id, 2),
+            _ => panic!("wrong packet"),
+        }
     }
 }

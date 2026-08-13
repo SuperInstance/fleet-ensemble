@@ -15,6 +15,14 @@ use crate::protocol::EMBEDDING_DIM;
 /// Number of recent pulses to retain for transfer entropy computation.
 const TE_WINDOW: usize = 16;
 
+/// Minimum number of samples required for statistically meaningful transfer entropy.
+///
+/// Transfer entropy estimation requires estimating conditional entropies via
+/// binning or k-NN methods. With fewer than ~128 samples, the estimator variance
+/// exceeds the signal. Below this threshold we return 0.0 (no detected flow).
+/// See: Schreiber, Phys. Rev. Lett. 85, 461 (2000); Lindner et al., PLoS ONE 6, e14747 (2011).
+const TE_MIN_SAMPLES: usize = 128;
+
 /// Minimum persistence (in pulses) for a topological feature to count as emergence.
 const MIN_PERSISTENCE: usize = 8;
 
@@ -24,16 +32,22 @@ const MIN_PERSISTENCE: usize = 8;
 ///
 /// Returns how much knowing A's recent history improves prediction of B.
 /// In the stub, this uses a simplified Granger-style linear approximation.
+///
+/// **Minimum sample requirement:** TE estimation requires ≥ `TE_MIN_SAMPLES`
+/// (128) samples for statistically meaningful results. With fewer samples,
+/// estimator variance exceeds the signal (see Lindner et al., PLoS ONE, 2011).
+/// This function returns 0.0 gracefully when insufficient data is available.
 pub fn transfer_entropy(
     history_a: &[[f32; EMBEDDING_DIM]],
     history_b: &[[f32; EMBEDDING_DIM]],
 ) -> f32 {
-    if history_a.len() < 4 || history_b.len() < 4 {
-        return 0.0;
-    }
-
     let n = history_a.len().min(history_b.len());
-    if n < 4 {
+
+    // Graceful fallback: insufficient data for meaningful TE estimation.
+    // TE estimation via k-NN or binning needs O(100+) samples; we use 128
+    // as the minimum to keep estimator variance below the expected signal.
+    // Callers should collect more history before relying on TE results.
+    if n < TE_MIN_SAMPLES {
         return 0.0;
     }
 
@@ -195,14 +209,24 @@ mod tests {
 
     #[test]
     fn te_returns_zero_for_short_histories() {
-        let a = vec![[0.0; EMBEDDING_DIM]];
+        // With TE_MIN_SAMPLES = 128, short histories gracefully return 0.0
+        let a = vec![[0.0; EMBEDDING_DIM]]; 
         let b = vec![[0.0; EMBEDDING_DIM]];
         assert_eq!(transfer_entropy(&a, &b), 0.0);
     }
 
     #[test]
+    fn te_returns_zero_below_min_samples() {
+        // 32 samples is still below TE_MIN_SAMPLES (128) — should return 0.0
+        let a: Vec<[f32; EMBEDDING_DIM]> = (0..32).map(|_| [0.5; EMBEDDING_DIM]).collect();
+        let b = a.clone();
+        assert_eq!(transfer_entropy(&a, &b), 0.0);
+    }
+
+    #[test]
     fn te_returns_zero_for_identical_histories() {
-        let a: Vec<[f32; EMBEDDING_DIM]> = (0..10).map(|_| [0.5; EMBEDDING_DIM]).collect();
+        // Need ≥ TE_MIN_SAMPLES (128) samples to get past the guard
+        let a: Vec<[f32; EMBEDDING_DIM]> = (0..200).map(|_| [0.5; EMBEDDING_DIM]).collect();
         let b = a.clone();
         // Identical, static histories should produce near-zero TE
         let te = transfer_entropy(&a, &b);

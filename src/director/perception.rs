@@ -98,9 +98,18 @@ impl PerceptionState {
             }
         }
 
-        // ─── Rotational Flux: Ω(t) = Σ ⟨v_i - C, Δ(v_i - C)⟩ ──
-        // Measures whether instruments are orbiting a shared idea
-        // (high flux = creative tension) or converging (low flux).
+        // ─── Rotational Flux: Ω(t) = Σ ‖v_tangential_i‖ ──────
+        // Measures the tangential component of each instrument's velocity
+        // relative to the centroid. High = instruments orbiting a shared
+        // idea (creative tension); low = converging or diverging radially.
+        //
+        // For each instrument i with position r_i = v_i - C and velocity
+        // Δr_i = r_i(t) - r_i(t-1), we decompose Δr_i into radial and
+        // tangential components:
+        //   radial = (⟨r_i, Δr_i⟩ / ‖r_i‖²) · r_i
+        //   tangential = Δr_i - radial
+        //   Ω = Σ ‖tangential_i‖²
+        // This correctly measures rotation rather than radial divergence.
         if !self.prev_positions.is_empty() && self.prev_positions.len() == point_cloud.len() {
             let prev_c = self.prev_centroid.unwrap_or(self.centroid);
             let mut flux = 0.0f32;
@@ -113,10 +122,22 @@ impl PerceptionState {
                     rel_curr[j] = vec[j] - new_centroid[j];
                     rel_prev[j] = prev_vec[j] - prev_c[j];
                 }
-                // Inner product of current position and velocity
+                // Velocity delta
+                let mut delta_r = [0.0f32; EMBEDDING_DIM];
                 for j in 0..EMBEDDING_DIM {
-                    flux += rel_curr[j] * (rel_curr[j] - rel_prev[j]);
+                    delta_r[j] = rel_curr[j] - rel_prev[j];
                 }
+                // Compute radial component: (⟨r, Δr⟩ / ‖r‖²) · r
+                let r_dot_dr: f32 = rel_curr.iter().zip(delta_r.iter()).map(|(r, d)| r * d).sum();
+                let r_sq: f32 = rel_curr.iter().map(|x| x * x).sum();
+                let radial_scale = if r_sq > 1e-12 { r_dot_dr / r_sq } else { 0.0 };
+                // Tangential = Δr - radial_component
+                let mut tang_sq = 0.0f32;
+                for j in 0..EMBEDDING_DIM {
+                    let tang = delta_r[j] - radial_scale * rel_curr[j];
+                    tang_sq += tang * tang;
+                }
+                flux += tang_sq;
             }
             self.rotational_flux = flux / n as f32;
         }
