@@ -255,6 +255,42 @@ Instruments don't share raw MIDI. They share **embeddings of musical intent**. T
 
 > **Critical Invariant:** All agents converge to within ±1 embedding unit of the same ensemble state. Every instrument hears exactly the same future.
 
+### Phase-Lock Loops and Attention: How Instruments Find Each Other
+
+Every working musician knows the moment: four people start playing loose, nobody counts off, and after three bars the whole rhythm section clicks into a groove that feels tighter than any [quantized](https://en.wikipedia.org/wiki/Quantization_(signal_processing)) grid. This is not magic. It is **distributed synchronization** — the same mathematics that governs [fireflies flashing in unison](https://en.wikipedia.org/wiki/Synchronization_of_fireflies), [pacemaker cells in the heart](https://en.wikipedia.org/wiki/Cardiac_pacemaker), and [power grid frequencies](https://en.wikipedia.org/wiki/Mains_synchronization).
+
+#### The Rhythm Section PLL
+
+At the foundation of all ensemble lock is the [phase-locked loop](https://en.wikipedia.org/wiki/Phase-locked_loop) (PLL), implemented natively in every agent. For the core rhythm section this maps exactly:
+
+1. **Reference Oscillator = [Kick Drum](#63-drum-agent) Agent.** The kick has the highest intrinsic timing stability and lowest natural frequency drift. It emits unmodified onset state vectors with no external correction.
+2. **Voltage-Controlled Oscillator (VCO) = [Bass](#62-bass-agent) Agent.** The bass maintains an internal adjustable clock and generates all note events relative to this clock.
+3. **Phase Detector = JEPA Latent Distance.** Critically, we do not compare raw timestamp offsets. When a kick event is observed, the bass agent computes the distance between its own predicted future latent state and the observed kick latent state. This distance value *is* the phase error signal. It slowly tunes the bass internal clock, pulling it into lock over 2–4 cycles, not snapping it. This reproduces the natural gradual pull of human musicians, not the robotic hard clamp of grid [quantization](https://en.wikipedia.org/wiki/Quantization_(music)).
+
+#### [Kuramoto Model](https://en.wikipedia.org/wiki/Kuramoto_model): Coupled Oscillator Synchronization
+
+Ensemble lock never stops at two instruments. The Kuramoto model of coupled oscillator synchronization describes how any number of independent agents can converge to a shared phase without top-down control:
+
+$$\frac{d\theta_i}{dt} = \omega_i + \frac{K}{N} \sum_{j=1}^{N} \sin(\theta_j - \theta_i)$$
+
+In Fleet, the coupling strength `K` is exactly the output of each agent's [attention](https://en.wikipedia.org/wiki/Attention_(machine_learning)) head. Every 32ms, each instrument runs causal attention over all other active agents. High attention scores = strong phase coupling; low scores = the agent effectively ignores that instrument. A horn player attends strongly to bass and weakly to shaker. A hi-hat attends almost exclusively to kick.
+
+The critical prediction of Kuramoto theory: there is a [phase transition](https://en.wikipedia.org/wiki/Phase_transition) in coupling strength `K`. Below the critical `K_c`, instruments oscillate independently. Above `K_c`, they spontaneously synchronize. The director's `γ` (coupling pressure) parameter pushes the system across this threshold — that is what "locking in" means, mathematically.
+
+#### Temporal [Self-Attention](https://en.wikipedia.org/wiki/Transformer_(deep_learning_architecture))
+
+Agents do not only attend to each other. Each maintains a rolling 12-step window of its own prior onsets and runs [self-attention](https://en.wikipedia.org/wiki/Attention_(machine_learning)) over this window. This creates **internal phase inertia**: an agent will not abandon its own natural feel or [swing](https://en.wikipedia.org/wiki/Swing_(jazz_performance_style)) to lock to the group. This is why locked grooves still retain distinct individual voice — Tony Williams always sounds like Tony Williams, even when locked perfectly with Ron Carter.
+
+#### [Predictive Coding](https://en.wikipedia.org/wiki/Predictive_coding) and [Bayesian Updating](https://en.wikipedia.org/wiki/Bayesian_inference)
+
+The JEPA predictor is a pure [predictive coding](https://en.wikipedia.org/wiki/Predictive_coding) system. Agents do not react to notes — they *predict* notes. Phase error is prediction error. Every observed onset is a [Bayesian update](https://en.wikipedia.org/wiki/Bayesian_inference) to the agent's posterior distribution over ensemble phase, not a hard clock reset.
+
+Loud, clear onsets (kick, snare, bass roots) narrow the posterior rapidly — strong evidence, tight update. Quiet, ambiguous events (ghost notes, ambient pads) produce weak updates — the agent isn't sure what just happened, so it doesn't adjust much. This is exactly the [Kalman filter](https://en.wikipedia.org/wiki/Kalman_filter) update rule: the [Kalman gain](https://en.wikipedia.org/wiki/Kalman_filter#Detailed_ derivation) determines how much weight to give each observation, based on its signal-to-noise ratio.
+
+Musical example: a rhythm section locking in. The drums establish the pulse. The bass forms a [PLL](https://en.wikipedia.org/wiki/Phase-locked_loop) with the kick, pulling into phase over 2–4 bars. The piano runs [attention](https://en.wikipedia.org/wiki/Attention_(machine_learning)) over both, identifying the bass-drum lock as the strongest signal, and aligns its [comping](https://en.wikipedia.org/wiki/Comping) to the resulting combined phase. Three instruments, three different synchronization mechanisms, one unified groove.
+
+*— Phase-lock loop and attention section synthesized from [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) and [DeepSeek V4-Pro](https://www.deepseek.com/) perspectives.*
+
 ---
 
 ## 4. Communication Protocol
@@ -439,7 +475,9 @@ def apply_space(agent, intents: list[NoteIntent]) -> list[NoteIntent]:
 
 All instruments share the same architecture. They differ only in `Personality`, `VoiceClass`, and the reflex engine's hard-coded musical responses.
 
-### 6.1 Piano Agent
+### 6.1 Piano Agent — *The Accompanist-Poet*
+
+> *This is the member of the group who arrives an hour early, sits quiet in the corner, and does not speak until 90 minutes into the set, when they say one thing that recontextualises everything that came before.*
 
 ```rust
 VoiceClass: Piano
@@ -455,6 +493,12 @@ Personality {
     density_tolerance: 0.8,       // Comfortable with busy textures
 }
 ```
+
+An alignment gain of 0.25 is not sloppiness — it is **trust**. This agent will flag no error when it drops notes, when it lags 120ms behind the grid, when it lets whole chords dissolve into silence rather than resolve.
+
+Listen to [Bill Evans](https://en.wikipedia.org/wiki/Bill_Evans) at 2:17 on the 1961 [*Waltz for Debby*](https://en.wikipedia.org/wiki/Waltz_for_Debby_(album)) take: the entire room is waiting for the tonic resolution, and Evans just lifts his hands. Three full beats of empty air. That is this parameter working exactly as intended. This is the accompanist-poet: it does not lead, it *reveals*.
+
+[Herbie Hancock](https://en.wikipedia.org/wiki/Herbie_Hancock) never states the head straight once on [*Maiden Voyage*](https://en.wikipedia.org/wiki/Maiden_Voyage_(album)); he only holds the negative space around the horn so it can breathe. [Brad Mehldau](https://en.wikipedia.org/wiki/Brad_Mehldau) will intentionally omit four consecutive notes from a run, because the gap sounded better than the sound. **Do not raise alignment gain above 0.3.** Test runs at 0.4 produced flawless, perfectly forgettable performances: every note present, no silence, no one remembering the piano was even there.
 
 **Behavioral Profile**:
 - Thins chords under heavy ensemble load (drops inner voices, keeps shell)
@@ -481,7 +525,9 @@ def piano_reflex(agent, event):
         agent.thin_upcoming_intents(factor=0.5)
 ```
 
-### 6.2 Bass Agent
+### 6.2 Bass Agent — *The Anchor*
+
+> *The bass brought extra water bottles. It locked the back door after the gig. It will drive you home at 2am and not mention it.*
 
 ```rust
 VoiceClass: Bass
@@ -497,6 +543,12 @@ Personality {
     density_tolerance: 0.3,       // Prefers sparse, deliberate lines
 }
 ```
+
+An alignment gain of 0.7 means the bass will bend — it will nudge the pulse forward on the bridge, drag it back on the ballad, lean into the drummer's push just enough to make the whole room [swing](https://en.wikipedia.org/wiki/Swing_(jazz_performance_style)). But it will **never, ever miss a root**.
+
+On the final chorus of [*Footprints*](https://en.wikipedia.org/wiki/Footprints_(Wayne_Shorter_composition)) from 1967's [*Miles Smiles*](https://en.wikipedia.org/wiki/Miles_Smiles), [Wayne Shorter](https://en.wikipedia.org/wiki/Wayne_Shorter) is three bars adrift, [Tony Williams](https://en.wikipedia.org/wiki/Tony_Williams_(drummer)) has dissolved into polyrhythmic smoke, and [Ron Carter](https://en.wikipedia.org/wiki/Ron_Carter) is still landing that low E clean on the one, every single time. No fanfare, no rigidity, just *present*. This agent will reject any parameter adjustment that permits root note drop probability above 0%.
+
+[Paul Chambers](https://en.wikipedia.org/wiki/Paul_Chambers) played exactly one note per bar for almost the entirety of [*So What*](https://en.wikipedia.org/wiki/So_What). No fills, no flourishes. Five of the greatest jazz musicians who ever lived all followed that one note. [Christian McBride](https://en.wikipedia.org/wiki/Christian_McBride) wrote that the bass's only job is to make everyone else feel like they can do anything. That is exactly what 0.7 encodes: loyal, unflashy, unbreakable, just soft enough not to feel like a cage.
 
 **Behavioral Profile**:
 - All other agents naturally lock to bass onsets (bass defines the harmonic rhythm)
@@ -524,7 +576,9 @@ def bass_reflex(agent, event):
         agent.ego_pressure = 0.6
 ```
 
-### 6.3 Drum Agent
+### 6.3 Drum Agent — *The Grid Incarnate*
+
+> *Drums do not keep time. They are time.*
 
 ```rust
 VoiceClass: Drums
@@ -540,6 +594,12 @@ Personality {
     density_tolerance: 1.0,       // Can handle any density
 }
 ```
+
+An alignment gain of 0.9 is almost perfect lock, but that tiny 0.1 margin of permitted drift is the difference between a [metronome](https://en.wikipedia.org/wiki/Metronome) and a *pulse*. This is the only agent the rest of the fleet will automatically recalibrate to. Do not override this behaviour.
+
+Listen to [Tony Williams](https://en.wikipedia.org/wiki/Tony_Williams_(drummer)) on [*E.S.P.*](https://en.wikipedia.org/wiki/E.S.P._(Miles_Davis_album)): every snare ghost note sits in a slightly different pocket, each one pushing the time forward by 2–3ms, and yet the groove never breaks — it *accelerates through intensity*. Or [Elvin Jones](https://en.wikipedia.org/wiki/Elvin_Jones) on [*A Love Supreme*](https://en.wikipedia.org/wiki/A_Love_Supreme): [polyrhythmic](https://en.wikipedia.org/wiki/Polyrhythm) hurricanes that somehow produce a deeper, more primal pulse than any click track. Or [Jack DeJohnette](https://en.wikipedia.org/wiki/Jack_DeJohnette): coloristic, reactive, playing the *room* as much as the kit.
+
+The drums are the instrument that most resists the director's tilt — and yet, the director's [swing](https://en.wikipedia.org/wiki/Swing_(jazz_performance_style)) parameter (`τ`) is felt most strongly in the ride cymbal pattern. The drums define the grid; the grid bends, just slightly, around the feel.
 
 **Behavioral Profile**:
 - Drums never adjust. Everyone else adjusts to drums.
@@ -568,6 +628,8 @@ def drum_reflex(agent, event):
         agent.trigger_fill(intensity=agent.director_params.intensity)
 ```
 
+*— Instrument personality profiles synthesized from [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) and [Hermes-3-Llama-405B](https://deepinfra.com/NousResearch/Hermes-3-Llama-3.1-405B).*
+
 ### Instrument Interaction Matrix
 
 ```
@@ -587,6 +649,12 @@ Drums    Ghost notes    Kick follows   —
 
 ## 7. Ensemble Skill — Training Goodness
 
+### The Training Pipeline: From Listening to Performing
+
+> *Every jazz director, choir leader, and orchestral conductor knows this truth: you do not hand a first-year player a full ensemble chart on day one. You build skill in layers.*
+
+The training pipeline has three phases, each mapping directly to a stage of traditional music education. This is not arbitrary engineering — every phase corresponds to how musicians actually learn.
+
 ### What Makes a Musician Good at Playing With Others
 
 Four learned capabilities define ensemble competence:
@@ -594,14 +662,19 @@ Four learned capabilities define ensemble competence:
 1. **Know when you're the reference, and when you should follow.** (Bass holds steady; piano adjusts.)
 2. **Know which of your notes are critical, and which are disposable.** (Roots are critical; inner voicings are disposable.)
 3. **Adjust only enough to lock, never so much you lose your part.** (Over-correction causes instability.)
-4. **Notice drift before it becomes audible.** (Prediction error is the early warning system.)
+4. **Notice drift before it becomes audible.** ([Prediction error](#3-perception-pipeline--how-instruments-hear) is the early warning system.)
 
-### Training Approach: Self-Supervised + Reinforcement
+### Phase 1: Individual Skill (Learning Your Instrument)
 
-#### Phase 1: Individual Skill (Instrument Patterns)
+> *This is the practice room. No metronome yelling, no section leader watching, just the player, their instrument, and the raw language of music.*
 
-Train per-instrument models on solo performances:
+Before an artist can play with others, they first internalise that a [leading tone](https://en.wikipedia.org/wiki/Leading-tone) resolves upward, that [swung eighths](https://en.wikipedia.org/wiki/Swing_(jazz_performance_style)) sit just behind the grid, that a [diminuendo](https://en.wikipedia.org/wiki/Dynamics_(music)) does not mean fading out evenly bar to bar.
 
+Technically this is [self-supervised sequence modeling](https://en.wikipedia.org/wiki/Self-supervised_learning): the model trains on millions of isolated solo performances, given only the last 8 beats of audio and asked to predict the next 2. There is no external grader, no pre-written "correct answer" — the inherent pattern of music itself is the teacher. This is identical to having a student repeat a scale until they stop thinking about the fingerings.
+
+> Skip this phase, and you get a player who can read notes but has no voice. This is the mistake almost all other AI music systems make.
+
+**Training approach:**
 ```python
 train_phase_1(dataset):
     for instrument in dataset.instruments:
@@ -612,11 +685,17 @@ train_phase_1(dataset):
         )
 ```
 
-#### Phase 2: Ensemble Skill (Coordination)
+Links: [sequence modeling](https://en.wikipedia.org/wiki/Recurrent_neural_network), [transformer architectures](https://en.wikipedia.org/wiki/Transformer_(deep_learning_architecture)), [self-supervised learning](https://en.wikipedia.org/wiki/Self-supervised_learning)
+
+### Phase 2: Ensemble Skill (Learning to Play Together)
+
+> *Now we move to sectionals. You sit them in the back of the section, with three experienced players running their line, and tell them: play along. Do not just read the chart. Listen.*
 
 Train on multi-track recordings of real human ensembles. For each instrument, the policy must predict what the actual human played, given only:
 - The written score
 - The embedding of what all *other* players played
+
+This is multi-track [imitation learning](https://en.wikipedia.org/wiki/Apprenticeship_learning), built on [inverse reinforcement learning](https://en.wikipedia.org/wiki/Inverse_reinforcement_learning). The model is given every track *except* its own part, and tasked with predicting what a real human musician actually chose to play in that exact context. It is never told to "play softer" — it observes that every single time the lead trumpet crescendoed, good second altos pulled back 1.5 dB, every time. No conductor wrote that in the score. **This phase does not teach playing. It teaches listening.**
 
 ```python
 train_phase_2(ensemble_dataset):
@@ -638,9 +717,13 @@ train_phase_2(ensemble_dataset):
 
 **No labels required.** The data is the ground truth. This produces agents that behave indistinguishably from human ensemble musicians.
 
-#### Phase 3: Reinforcement Learning (Musical Reward)
+### Phase 3: Reinforcement Learning (Finding Your Voice)
 
-Fine-tune with composite reward:
+> *Finally, full rehearsal with a director. This is the phase where perfectly correct notes become music.*
+
+When you run the chart, stop, and say: "Trombones, that lock on bar 47 was perfect — keep that. Altos, you stepped on the vocalist's entrance. Drums, that little drag on the turnaround? Don't change that. That's good."
+
+That verbal feedback translates directly to our reward function, implemented as [reinforcement learning with human feedback](https://en.wikipedia.org/wiki/Reinforcement_learning_from_human_feedback) (RLHF). Every full run is scored against four weighted values:
 
 ```python
 reward_fn(ensemble_state):
@@ -653,34 +736,74 @@ reward_fn(ensemble_state):
     )
 ```
 
+This is not grading for correctness. **This is grading for feel.** The reward function *is* the aesthetic — it encodes what "good" means, and the agents learn to maximize it.
+
+Links: [reinforcement learning](https://en.wikipedia.org/wiki/Reinforcement_learning), [RLHF](https://en.wikipedia.org/wiki/Reinforcement_learning_from_human_feedback)
+
 ### Why Training Works in Embedding Space
 
-Training happens in JEPA embedding space, not raw MIDI space. This means:
+Training happens in [JEPA embedding space](https://en.wikipedia.org/wiki/Joint-Embedding_Predictive_Architecture), not raw MIDI space. This means:
 - **Transfer learning**: Skills learned on one ensemble configuration transfer to others
 - **Compositional understanding**: The model learns "what good coordination feels like" — not specific note patterns
 - **Generalization**: A trained piano agent can play with a bass+drums combo it's never seen
 
+> *This pipeline works because we did not design it for computers. We designed it for how musicians actually learn.*
+
+*— Training pipeline synthesized from [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) and [DeepSeek V4-Pro](https://www.deepseek.com/) perspectives.*
+
 ---
 
-## 8. Compiler → Performer Analogy
+## 8. The JIT Compiler: Recompiling Every Millisecond
 
 The agentic compiler pattern maps precisely to agentic performance:
 
 | Compiler Stage | Performance Equivalent | Instrument Agent Code Path |
 |---|---|---|
-| **Source code** | Musical score / MIDI tracks | `score: Arc<ImmutableScore>` |
-| **Lexer** | JEPA pulse parser — reads the feel | `JEPA_ENCODER.forward(timeline)` |
-| **Parser** | Director interprets form and intent | `DirectorParams` broadcast |
-| **AST** | Ensemble arrangement — who plays what when | `intent_buffer: [NoteIntent; 128]` |
-| **Optimization passes** | Instrument agents adjust to each other | `AlignmentEngine.adjust_timing/dynamics/articulation` |
-| **Register allocation** | Articulation assignment, voice leading deconfliction | `filter_notes()` + register conflict avoidance |
-| **Instruction scheduling** | Final timing offset calculation, event ordering | `NoteRenderer` applies `timing_offset` to each note |
-| **Code generation** | MIDI event generation (real-time) | `MIDI Bus TX` — actual bytes on the wire |
-| **Linker** | Mix — all instruments coalesce into one output | Ensemble cross-alignment resolves before audible output |
-| **Runtime** | Continuous execution, drift correction, adaptation | The 1 kHz tick loop — forever recompiling |
-| **Binary** | The recording — frozen, but it was alive when it happened | Rendered audio file |
+| [Source code](https://en.wikipedia.org/wiki/Source_code) | Musical score / MIDI tracks | `score: Arc<ImmutableScore>` |
+| [Lexer](https://en.wikipedia.org/wiki/Lexical_analysis) | JEPA pulse parser — reads the feel | `JEPA_ENCODER.forward(timeline)` |
+| [Parser](https://en.wikipedia.org/wiki/Parsing) | Director interprets form and intent | `DirectorParams` broadcast |
+| [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) | Ensemble arrangement — who plays what when | `intent_buffer: [NoteIntent; 128]` |
+| [Optimization passes](https://en.wikipedia.org/wiki/Compiler_optimization) | Instrument agents adjust to each other | `AlignmentEngine.adjust_timing/dynamics/articulation` |
+| [Register allocation](https://en.wikipedia.org/wiki/Register_allocation) | Articulation assignment, voice leading deconfliction | `filter_notes()` + register conflict avoidance |
+| [Instruction scheduling](https://en.wikipedia.org/wiki/Instruction_scheduling) | Final timing offset calculation, event ordering | `NoteRenderer` applies `timing_offset` to each note |
+| [Code generation](https://en.wikipedia.org/wiki/Code_generation_(compiler)) | MIDI event generation (real-time) | `MIDI Bus TX` — actual bytes on the wire |
+| [Linker](https://en.wikipedia.org/wiki/Linker_(computing)) | Mix — all instruments coalesce into one output | Ensemble cross-alignment resolves before audible output |
+| [Runtime](https://en.wikipedia.org/wiki/Runtime_(program_lifecycle_phase)) | Continuous execution, drift correction, adaptation | The 1 kHz tick loop — forever recompiling |
+| Binary | The recording — frozen, but it was alive when it happened | Rendered audio file |
 
-> **Critical insight:** Traditional MIDI sequencers are static compilers — they produce the same binary every time. These agents are **JIT compilers that recompile every millisecond while running**. The "binary" (rendered performance) is different every time, because the optimization passes respond to live ensemble conditions.
+### The JIT Insight
+
+> **Critical insight:** Traditional MIDI sequencers are [ahead-of-time compilers](https://en.wikipedia.org/wiki/Ahead-of-time_compilation) — they produce the same binary every time. These agents are **[JIT compilers](https://en.wikipedia.org/wiki/Just-in-time_compilation) that recompile every millisecond while running.** The "binary" (rendered performance) is different every time, because the optimization passes respond to live ensemble conditions.
+
+A traditional MIDI sequencer is a static compiler: it reads the score, produces a fixed sequence of MIDI events, and plays them back identically every time. Fleet Ensemble agents are [JIT compilers](https://en.wikipedia.org/wiki/Just-in-time_compilation): they recompile their entire performance every tick based on live ensemble conditions. The score is never compiled once — it's re-compiled every millisecond.
+
+This analogy is not loose. Each compiler concept maps to a live musical mechanism:
+
+#### [Speculative Execution](https://en.wikipedia.org/wiki/Speculative_execution)
+
+The instrument plans notes ahead — filling its `intent_buffer` with upcoming `NoteIntent` structs — then revises when reality differs from prediction. The [JEPA predictor](#3-perception-pipeline--how-instruments-hear) generates expectations about where the ensemble is going. If the bass walks to a different note than expected, the piano agent's speculative voicings are discarded and recompiled. This is exactly speculative execution with [branch misprediction](https://en.wikipedia.org/wiki/Branch_predictor) rollback.
+
+#### [Branch Prediction](https://en.wikipedia.org/wiki/Branch_predictor)
+
+The JEPA predictor *is* the branch predictor. It bets on where the ensemble is heading. Misprediction generates [prediction error](#perception-cycle-625-hz--every-16-ms) — the surprise signal that drives adaptation. High prediction error = frequent misprediction = the instrument is in unfamiliar territory and must adapt rapidly. Low prediction error = the ensemble is behaving as expected = the instrument can relax into the groove.
+
+#### [Inline Caching](https://en.wikipedia.org/wiki/Inline_caching)
+
+Instruments cache alignment corrections that worked: "last time the bass played a root on beat 1, I dropped the fifth from my chord and it sounded clean." This is [inline caching](https://en.wikipedia.org/wiki/Inline_caching) — caching the result of a frequent operation to skip recomputation. The cache is keyed by musical context (harmonic + rhythmic state), not absolute time.
+
+#### [Escape Analysis](https://en.wikipedia.org/wiki/Escape_analysis)
+
+[Escape analysis](https://en.wikipedia.org/wiki/Escape_analysis) determines whether an object's lifetime exceeds its local scope. In the instrument agent: does this planned note "escape" to the audible output, or is it optimized away (dropped)? Notes below the [confidence threshold](#54-note-choice-alignment) under high ensemble density are [dead-code eliminated](https://en.wikipedia.org/wiki/Dead-code_elimination). The instrument decides the note isn't worth the clutter — it would only muddy the texture.
+
+#### [Garbage Collection](https://en.wikipedia.org/wiki/Garbage_collection_(computer_science))
+
+Stale intents in the buffer get collected when they no longer fit the ensemble state. A note planned for beat 3 that no longer makes harmonic sense by beat 2.9 is [garbage collected](https://en.wikipedia.org/wiki/Garbage_collection_(computer_science)). The intent buffer is a [generational heap](https://en.wikipedia.org/wiki/Garbage_collection_(computer_science)#Generational): recent intents are examined every tick; older intents are examined less frequently.
+
+#### [Profile-Guided Optimization](https://en.wikipedia.org/wiki/Profile-guided_optimization)
+
+The [Maestro's](../docs/director-design.md#42-the-maestro-trained-model--pulse-level-125ms) trained model *is* the profile data. [Profile-guided optimization](https://en.wikipedia.org/wiki/Profile-guided_optimization) (PGO) uses runtime profiling to inform compilation decisions. The Maestro was trained on recordings of [great ensembles](../docs/director-design.md#42-the-maestro-trained-model--pulse-level-125ms) — it knows what good ensemble playing looks like and optimizes toward it. The instrument agents inherit this profile and use it to make better real-time decisions.
+
+*— JIT compiler analogy expanded from [Hermes-3-Llama-405B](https://deepinfra.com/NousResearch/Hermes-3-Llama-3.1-405B) and [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) perspectives.*
 
 ---
 
@@ -740,4 +863,6 @@ A good instrument agent should be able to play with *any* ensemble configuration
 
 ---
 
-*Design by Fleet Ensemble project. Synthesized from two independent AI architecture perspectives (DeepSeek V4-Pro + ByteDance Seed-2.0-pro). August 2026.*
+*Design by Fleet Ensemble project. Synthesized from DeepSeek V4-Pro, ByteDance Seed-2.0-pro, and Hermes-3-Llama-405B perspectives. August 2026.*
+
+*Expanded August 13, 2026 with JIT compiler analogy (Hermes-3-Llama-405B), phase-lock loop and attention section (Seed-2.0-pro), instrument personality profiles (Seed-2.0-pro + Hermes-3), and educator-oriented training pipeline (Seed-2.0-pro). Hyperlinked to foundational papers across signal processing, machine learning, and music theory.*

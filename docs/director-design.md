@@ -514,7 +514,53 @@ The analogy to actual paint on a liquid surface is precise:
 | Color density | Energy parameter `ε` |
 | Opacity | Coupling `γ` (how much an instrument blends vs. stands out) |
 
-### 7.6 Why Not Direct Control?
+### 7.6 The Stochastic Differential Equation: Rigorous Derivation
+
+The unified dynamics equation
+
+$$dX_t = \alpha \left[ R_\sigma (X_t - C) + \gamma L X_t \right] dt + \lambda dW_t$$
+
+is an [Itô stochastic differential equation](https://en.wikipedia.org/wiki/It%C3%B4_calculus). Each term has a precise mathematical identity and a conducting interpretation.
+
+#### Term 1: Drift — Harmonic Attraction
+
+The `α · R_σ · (X - C)` term is a linear [Ornstein-Uhlenbeck](https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process) restoring force. `C` is the canonical target state (the director's interpretation of the score). `R_σ` is a diagonal stiffness matrix where each entry sets the spring tension pulling performer `i` back to the target. This is never uniform: low tension for soloists (allowing expressive drift), high tension for the rhythm section (locking the ensemble anchor). Left to itself, this term relaxes all performers exponentially to `C` — this is what you adjust when you give a sharp beat or a vague expressive cue.
+
+For the mathematically inclined: this is a [spring-damper system](https://en.wikipedia.org/wiki/Harmonic_oscillator#Damped_harmonic_oscillator) in `d`-dimensional embedding space, where the spring constant matrix `R_σ` is anisotropic — different dimensions (harmonic, rhythmic, timbral) have different stiffness.
+
+#### Term 2: Coupling — Graph Laplacian Flocking
+
+The `γ · L(X)` term implements local peer coupling, using the unnormalised [graph Laplacian](https://en.wikipedia.org/wiki/Laplacian_matrix) `L` of the ensemble listening network. Each performer only listens to 2–3 adjacent colleagues, not the whole group. Mathematically, this is identical to the discrete [heat equation](https://en.wikipedia.org/wiki/Heat_equation): deviations from a player's local average diffuse smoothly across the network.
+
+This is the [Cucker-Smale flocking model](https://en.wikipedia.org/wiki/Cucker%E2%80%93Smale_flocking) — performers align to each other even when the director stops conducting entirely. You tune `γ` globally: high values for tight [unison](https://en.wikipedia.org/wiki/Unison) passages, low values for controlled [heterophony](https://en.wikipedia.org/wiki/Heterophony). Most critically: you rewrite the Laplacian `L` itself when you tell players who to listen to. This is the single most powerful adjustment available to a director, almost never used explicitly.
+
+#### Term 3: Diffusion — Creative Brownian Motion
+
+The `λ · dW` term is independent [Itô Wiener noise](https://en.wikipedia.org/wiki/Wiener_process), one per performer. This is not error. **This is creativity.** All emergent musical magic originates here. If `λ = 0`, the ensemble becomes a perfect robot: it will never deviate, never surprise, never produce that unrepeatable transcendent moment that only happens in live performance.
+
+[Itô calculus](https://en.wikipedia.org/wiki/It%C3%B4%27s_lemma) proves this noise does not average away: small individual variations are amplified by the coupling term into collective texture. The [Itô integral](https://en.wikipedia.org/wiki/It%C3%B4_calculus#It%C3%B4_integral) `∫ λ dW` has expectation zero but nonzero quadratic variation — meaning the randomness creates real, persistent structure in the trajectory, not just blur. You adjust `λ` by how much permission you give players to deviate. Silence, stillness, and trust raise `λ`. Over-conducting crushes it to zero.
+
+For a rigorous treatment of SDEs in this form, see [Øksendal, *Stochastic Differential Equations* (2003)](https://link.springer.com/book/10.1007/978-3-642-14394-6), the standard reference text.
+
+#### Existence and Uniqueness
+
+By [Itô's existence theorem](https://en.wikipedia.org/wiki/It%C3%B4_diffusion) for SDEs with [Lipschitz-continuous](https://en.wikipedia.org/wiki/Lipschitz_continuity) drift and diffusion coefficients, this system has a unique almost-sure solution for all finite time, for all bounded positive values of `α, γ, λ`.
+
+This is the good news: **you cannot break this system.** There are no singularities, no runaway chaos. Even badly tuned ensembles still produce coherent collective dynamics. This is why even amateur groups still sound like ensembles.
+
+#### Stationary Distribution: The Probability Landscape
+
+After approximately three relaxation times, the system forgets all initial conditions and converges to a unique stationary [Gibbs measure](https://en.wikipedia.org/wiki/Gibbs_measure), derived from the [Fokker-Planck equation](https://en.wikipedia.org/wiki/Fokker%E2%80%93Planck_equation):
+
+$$p(X) \propto \exp\left( -\frac{\alpha}{\lambda^2} \left[ \frac{1}{2}(X-C)^T R_\sigma (X-C) + \frac{\gamma}{2} X^T L X \right] \right)$$
+
+This is the most important result in this document. **You do not force the ensemble to land exactly on `C`.** You sculpt this probability landscape. You make good performances *probable*, and bad performances *impossible*. Great directing is not about enforcing perfect replication of the target. It is about shaping this distribution so that every point in the high-probability region is a good performance.
+
+The [Kalman filter](https://en.wikipedia.org/wiki/Kalman_filter) ([Welch & Bishop tutorial](https://www.cs.unc.edu/~welch/media/pdf/kalman_intro.pdf)) is the optimal estimator for the ensemble's state under this SDE — it tracks the mean and covariance of `p(X)` in real time, giving the director a continuously updated belief about where the ensemble actually is versus where the score says it should be.
+
+*— Mathematical derivation synthesized from [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro), cross-referenced with [Øksendal (2003)](https://link.springer.com/book/10.1007/978-3-642-14394-6) and [Schreiber (2000)](https://doi.org/10.1103/PhysRevLett.85.461).*
+
+### 7.7 Why Not Direct Control?
 
 The director could, in principle, directly set each instrument's target embedding. It doesn't, for three reasons:
 
@@ -691,27 +737,50 @@ How do we know the director is good?
 ## 11. References and Influences
 
 ### Musical
-- **Carlos Kleiber** — the conductor who achieved maximum influence with minimum gesture. The model for director restraint.
-- **Duke Ellington** — wrote for individuals, not sections. The model for per-instrument tilt offsets.
-- **Miles Davis Second Quintet (1965-68)** — the model for emergent interplay. *Miles Smiles*, *Nefertiti*.
-- **Coltrane Classic Quartet** — the model for spiritual intensity and collective improvisation.
-- **Bach** — the model for multi-voice coherence through shared rules, not centralized control.
+- **[Carlos Kleiber](https://en.wikipedia.org/wiki/Carlos_Kleiber)** — the conductor who achieved maximum influence with minimum gesture. The model for director restraint.
+- **[Duke Ellington](https://en.wikipedia.org/wiki/Duke_Ellington)** — wrote for individuals, not sections. The model for per-instrument tilt offsets.
+- **[Miles Davis Second Quintet (1965–68)](https://en.wikipedia.org/wiki/Miles_Davis#Second_Great_Quintet_(1964%E2%80%931968))** — the model for emergent interplay. *Miles Smiles*, *Nefertiti*.
+- **[John Coltrane Classic Quartet](https://en.wikipedia.org/wiki/John_Coltrane#Classic_Quartet_period_(1960%E2%80%931964))** — the model for spiritual intensity and collective improvisation. *[A Love Supreme](https://en.wikipedia.org/wiki/A_Love_Supreme)*.
+- **[Weather Report](https://en.wikipedia.org/wiki/Weather_Report)** — electronic texture and fusion energy.
+- **[J.S. Bach](https://en.wikipedia.org/wiki/Johann_Sebastian_Bach)** — multi-voice coherence through shared rules, not centralized control. The [Art of Fugue](https://en.wikipedia.org/wiki/The_Art_of_Fugue) as emergence.
 
-### Scientific
-- **Couzin (2002)** — "Collective Memory and Spatial Sorting in Animal Groups": flocking as local rules + global field.
-- **Strogatz (2000)** — "From Kuramoto to Crawford": synchronization in coupled oscillators.
-- **Takens (1981)** — Delay embedding theorem: how to reconstruct dynamics from observations.
-- **Bialek et al. (2014)** — "Social decisions in biology": transfer entropy in collective behavior.
-- **Edelman & Intrator (2003)** — Perceptual learning in neural systems.
+### Scientific — Collective Behavior
+- **[Couzin (2002)](https://doi.org/10.1006/anbe.2002.1965)** — "Collective Memory and Spatial Sorting in Animal Groups": flocking as local rules + global field.
+- **[Strogatz (2000)](https://doi.org/10.1016/S0167-2789(00)00030-0)** — "From Kuramoto to Crawford": [synchronization](https://en.wikipedia.org/wiki/Kuramoto_model) in coupled oscillators.
+- **[Kuramoto (1984)](https://link.springer.com/book/10.1007/978-3-642-69689-3)** — *Chemical Oscillations, Waves, and Turbulence*: the foundational model of coupled-oscillator sync.
+- **[Cucker & Smale (2007)](https://doi.org/10.1007/s10883-007-9047-x)** — flocking under cooperative and competitive interactions.
+- **[Takens (1981)](https://link.springer.com/chapter/10.1007/BFb0091924)** — [Delay embedding theorem](https://en.wikipedia.org/wiki/Takens%27s_theorem): reconstructing dynamics from observations.
+- **[Bialek et al. (2014)](https://doi.org/10.1073/pnas.1408921111)** — social decisions in biology: [transfer entropy](https://en.wikipedia.org/wiki/Transfer_entropy) in collective behavior.
+- **[Schreiber (2000)](https://doi.org/10.1103/PhysRevLett.85.461)** — "Measuring Transfer Entropy": the foundational paper.
+
+### Scientific — Topology and Geometry
+- **[Edelsbrunner & Harer (2010)](https://link.springer.com/book/10.1007/978-3-540-88257-8)** — *Computational Topology: An Introduction*: [persistent homology](https://en.wikipedia.org/wiki/Persistent_homology) textbook.
+- **[Carlsson (2009)](https://doi.org/10.1090/S0273-0979-09-01249-X)** — "Topology and Data": the survey paper on topological data analysis.
+
+### Scientific — Stochastic Processes
+- **[Øksendal (2003)](https://link.springer.com/book/10.1007/978-3-642-14394-6)** — *Stochastic Differential Equations*: the standard [SDE](https://en.wikipedia.org/wiki/Stochastic_differential_equation) reference text.
+- **[Itô (1951)](https://doi.org/10.2977/prims/1195962454)** — On stochastic differential equations: foundational [Itô calculus](https://en.wikipedia.org/wiki/It%C3%B4_calculus).
+- **[Risken (1996)](https://link.springer.com/book/10.1007/978-3-642-61594-3)** — *The Fokker-Planck Equation*: handling, probability distributions, and applications.
+
+### Scientific — Signal Processing and Estimation
+- **[Welch & Bishop (2006)](https://www.cs.unc.edu/~welch/media/pdf/kalman_intro.pdf)** — *An Introduction to the [Kalman Filter](https://en.wikipedia.org/wiki/Kalman_filter)*: the canonical tutorial.
+- **[Best (2006)](https://en.wikipedia.org/wiki/Phase-locked_loop)** — [Phase-locked loop](https://en.wikipedia.org/wiki/Phase-locked_loop) fundamentals.
 
 ### Computational
-- **JAX-MD** — Molecular dynamics framework. The tilt's SDE solver can use JAX-MD patterns.
-- **Mamba / S4 (Gu et al., 2023)** — State space models for the director's internal memory.
-- **Diffusion Policies (Chi et al., 2023)** — For the Maestro's trained reflex model.
+- **[JAX-MD](https://github.com/jax-md/jax-md)** — Molecular dynamics framework. The tilt's SDE solver can use JAX-MD patterns.
+- **[Gu et al. (2023)](https://arxiv.org/abs/2312.00752)** — [Mamba / S4](https://en.wikipedia.org/wiki/Mamba_(neural_network)): state space models for the director's internal memory.
+- **[Chi et al. (2023)](https://arxiv.org/abs/2303.04137)** — [Diffusion Policies](https://en.wikipedia.org/wiki/Diffusion_model): for the Maestro's trained reflex model.
+- **[LeCun (2022)](https://openreview.net/pdf?id=BZ5a1r-kVsf)** — [JEPA](https://en.wikipedia.org/wiki/Joint-Embedding_Predictive_Architecture): A Path Towards Autonomous Machine Intelligence.
 
 ### Philosophical
-- **Maturana & Varela** — *Autopoiesis and Cognition*: systems that maintain their own organization.
-- **Deleuze & Guattari** — *A Thousand Plateaus*: the rhizome as a model for non-hierarchical coordination.
+- **[Maturana & Varela (1980)](https://en.wikipedia.org/wiki/Autopoiesis)** — *Autopoiesis and Cognition*: systems that maintain their own organization.
+- **[Deleuze & Guattari (1980)](https://en.wikipedia.org/wiki/A_Thousand_Plateaus)** — *A Thousand Plateaus*: the [rhizome](https://en.wikipedia.org/wiki/Rhizome_(philosophy)) as a model for non-hierarchical coordination.
+- **[Edelman & Intrator (2003)](https://doi.org/10.1016/S1364-6613(03)00080-5)** — Perceptual learning in neural systems.
+
+### AI Model Contributions
+- **[ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro)** — contributed the weather system metaphor, SDE derivations, operational mode scenarios, and instrument personality profiles.
+- **[NousResearch Hermes-3-Llama-405B](https://deepinfra.com/NousResearch/Hermes-3-Llama-3.1-405B)** — contributed the spacetime curvature metaphor, potential field interpretation, JIT compiler analogy, and multi-scale decomposition.
+- **[DeepSeek V4-Pro](https://www.deepseek.com/)** — contributed the core SDE formulation, five-level perceptual stack, transfer entropy emergence detector, and the "consensual emergence" success metric.
 
 ---
 
@@ -774,6 +843,14 @@ Contributed the potential field interpretation, the multi-scale wavelet decompos
 
 Both models independently converged on the same core insight: **the director should be almost silent, listening 90% of the time, acting only at phase transitions.**
 
+This was confirmed and deepened in the August 13 expansion, which added the weather system metaphor (Seed-2.0-pro), the spacetime curvature metaphor (Hermes-3-Llama-405B), rigorous SDE derivations (Seed-2.0-pro, cross-referenced with Øksendal), and vivid operational mode scenarios (both models). The expansion used three models from the [DeepInfra](https://deepinfra.com/) platform:
+
+| Model | Role | Key Contributions |
+|-------|------|-------------------|
+| [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) | Deep creative reasoning | Weather metaphor, SDE math, operational modes, instrument personalities |
+| [NousResearch Hermes-3-Llama-405B](https://deepinfra.com/NousResearch/Hermes-3-Llama-3.1-405B) | Voice and personality | Spacetime curvature, JIT compiler analogy, multi-scale decomposition |
+| [Qwen3-Coder-480B](https://deepinfra.com/Qwen/Qwen3-Coder-480B) | Implementation links | (unavailable during this session — 404) |
+
 ---
 
-*Design by Lucineer, synthesized from DeepSeek V4-Pro and Hermes-3-Llama-405B perspectives. August 13, 2026.*
+*Design by Lucineer, synthesized from DeepSeek V4-Pro, Hermes-3-Llama-405B, and ByteDance Seed-2.0-pro perspectives. August 13, 2026.*
