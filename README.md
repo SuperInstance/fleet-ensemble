@@ -88,21 +88,35 @@ Liquid white base paint is the ground. Each instrument is a color poured onto th
 
 Fleet Ensemble uses Fleet JEPA-MIDI's embedding space as its shared language. Each instrument agent has its own JEPA reader. The director operates on the ensemble-level embedding — the sum of all instruments' current states.
 
-## The Director
+## The Director is a JEPA
 
-The director is not a conductor with a baton. The director is a painter who tilts the canvas.
+The director is not an LLM. The director is not a conductor with a baton. **The director is a JEPA** — a Joint Embedding Predictive Architecture that perceives the whole ensemble's feel and outputs the tilt.
 
-Director inputs:
-- Ensemble JEPA embedding (what does the whole sound feel like right now?)
-- Score context (where are we in the form?)
-- Creative intent (what should happen next?)
+This is the key insight from Casey: the JEPA IS the director. It doesn't describe the feel in language. It perceives the feel in its latent space and outputs directorial parameters directly. Perception-to-direction, not perception-to-language-to-direction.
 
-Director outputs (feel parameters broadcast to all instruments):
-- **Tempo curve** — micro-adjustments to pulse (not a static BPM, a living tempo)
-- **Dynamic shape** — intensity envelope across the ensemble
-- **Color** — bright/dark, dense/sparse, active/still
-- **Weight** — which instrument carries the moment
-- **Space** — how much silence between events
+The JEPA director:
+- **Perceives** every instrument's current state via their embeddings
+- **Predicts** where the ensemble is heading
+- **Outputs** the tilt — feel parameters that shape how instruments render:
+  - **Tempo curve** — micro-adjustments to pulse (living tempo, not static BPM)
+  - **Dynamic shape** — intensity envelope across the ensemble
+  - **Color** — bright/dark, dense/sparse, active/still
+  - **Weight** — which instrument carries the moment
+  - **Space** — how much silence between events
+- **Learns** what tilts produce what emergent behaviors — trained on real ensemble performances
+
+## The Performer is Any Model
+
+The performer is modular and pluggable. Any model that can take MIDI and render it as precise instructions for a music rendering system. Could be an LLM that thinks in phrasing. Could be a rules engine. Could be a trained transformer. The point: the performer renders MIDI with **intelligence and musicality** — not just notes on a page, but a real performance.
+
+The performer receives:
+- The MIDI score (what to play)
+- The JEPA director's tilt (how to play it)
+- Its own instrument's current state
+
+The performer outputs:
+- Rendered MIDI events with musicality — micro-timing, velocity shaping, phrasing, breath, space
+- More than the score. The score made alive.
 
 ## The Instruments
 
