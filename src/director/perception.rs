@@ -7,7 +7,7 @@
 //! | Centroid      | C(t)    | Mean of all instrument embeddings        |
 //! | Dispersion    | D(t)    | Mean distance from centroid              |
 //! | Velocity      | ΔC(t)   | Centroid change since last pulse         |
-//! | Rotational    | Ω(t)    | Inner product of positions and velocities|
+//! | Rotational    | Ω(t)    | Tangential velocity magnitude squared   |
 //! | Coherence     | K(t)    | Fourier stability over 32-pulse window   |
 //!
 //! See: Director Design §1.2 "The Perceptual Stack"
@@ -32,6 +32,15 @@ pub struct PerceptionState {
     pub velocity: [f32; EMBEDDING_DIM],
 
     /// Ω(t): rotational flux — are instruments orbiting or converging?
+    ///
+    /// Computed as the sum of squared tangential velocity components
+    /// relative to the centroid. This correctly captures angular/orbital
+    /// motion, NOT radial expansion/contraction.
+    ///
+    /// Note (math review Aug 2026): The original formula
+    /// Σᵢ⟨rᵢ, Δrᵢ⟩ was actually radial divergence (½ΣᵢΔ‖rᵢ‖²), not rotation.
+    /// The current implementation correctly decomposes velocity into radial
+    /// and tangential components and sums the squared tangential magnitudes.
     pub rotational_flux: f32,
 
     /// K(t): temporal coherence — groove stability over 32-pulse window.
