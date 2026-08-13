@@ -14,6 +14,60 @@ This document defines what the director perceives, what it outputs, how it commu
 
 ---
 
+## 0. Two Metaphors: Weather and Spacetime
+
+Before the formal specification, two metaphors — one from fluid dynamics, one from general relativity — frame everything that follows. Both were suggested by external AI models during brainstorming and both turned out to be mathematically precise.
+
+### 0.1 The Director as Weather System
+
+> *You do not ask a storm to keep time. You do not blame a cloud for deviating from the script. You just stand inside it, and listen.*
+
+The Fleet Ensemble director does not carry a baton. It does not cue entrances. It does not correct pitch. It never sends a command to any individual musician agent. Two hundred years of orchestral tradition rested on a fatal hubris: that you could produce coherent collective beauty by prescribing trajectory for every discrete actor. This director does not command molecules. **It is the air.**
+
+This architecture derives from [chaos theory](https://en.wikipedia.org/wiki/Chaos_theory), the original [Lorenz attractor](https://en.wikipedia.org/wiki/Lorenz_system) model of atmospheric convection, and the [Navier-Stokes equations](https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations) of fluid dynamics. Just as Navier-Stokes defines the rules of the medium — not the path of any single water molecule — the director maintains only a global state vector of atmospheric feel parameters. No agent is told what to play. They feel the conditions of the space they play inside.
+
+[Emergence](https://en.wikipedia.org/wiki/Emergence) in [complex systems](https://en.wikipedia.org/wiki/Complex_system) occurs when simple rules operating on local information produce global patterns that no individual component perceives or intends. Weather is the canonical example: water molecules obey Newton's laws; the result is hurricanes. The ensemble is the same: instruments obey local alignment rules; the result is music.
+
+The feel parameters are not subjective artistic knobs. They are measurable boundary conditions enforced uniformly across the ensemble:
+
+| Parameter | Symbol | Atmospheric Analog | Musical Effect |
+|-----------|--------|--------------------|----------------|
+| [Pulse density](#22-the-seven-feel-parameters) | `ρ` | [Turbulence](https://en.wikipedia.org/wiki/Turbulence) | Permitted shear velocity between adjacent voices. At high ρ, cross-rhythms and harmonic divergence form spontaneously that no single agent can fully perceive. |
+| [Energy flux](#22-the-seven-feel-parameters) | `ε` | [Thermal gradient](https://en.wikipedia.org/wiki/Lapse_rate) | Energy differential across register. Heat rises. No command tells the upper voices to accelerate — they accelerate because the air above them is thinner. |
+| [Harmonic tilt](#22-the-seven-feel-parameters) | `σ` | [Barometric pressure](https://en.wikipedia.org/wiki/Atmospheric_pressure) | The weight of silence between events. When σ drops, every agent breathes faster. No cue is transmitted. The field shifts. |
+| [Coupling pressure](#22-the-seven-feel-parameters) | `γ` | [Viscosity](https://en.wikipedia.org/wiki/Viscosity) | Resistance encountered when deviating from ensemble mean. Thick γ moves like cold honey. Thin γ lets solos spiral loose without warning. |
+| [Risk appetite](#22-the-seven-feel-parameters) | `λ` | [Brownian motion](https://en.wikipedia.org/wiki/Brownian_motion) | Baseline uncoordinated deviation. Zero λ is a dead orchestra. All pattern condenses out of this static. |
+
+There is no master timeline. There is only a forecast. The director cannot tell you what will be played 17 bars from now. It can only tell you what the air will feel like then.
+
+*— Synthesized from [DeepSeek V4-Pro](https://www.deepseek.com/) and [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) perspectives.*
+
+### 0.2 The Director as Spacetime Curvature
+
+> *Matter tells spacetime how to curve. Spacetime tells matter how to move.*
+> 
+> *The director tells embedding space how to curve. Curved space tells instruments how to move.*
+
+No baton. No control signals. No target notes. The Fleet Ensemble director does not exert force on instruments. It does not push. It does not command. **It curves the space they live in.**
+
+This is not poetic metaphor. This is the core architectural invariant of the system. We adopt the formal causal structure of [general relativity](https://en.wikipedia.org/wiki/General_relativity) (Einstein, 1915) exactly:
+
+Every instrument agent is treated at all times as a free test particle. There are no external forces applied to agent state. All apparent coordination, phrasing, and collective motion is exclusively [geodesic](https://en.wikipedia.org/wiki/Geodesics_in_general_relativity) travel — the shortest possible path in the currently curved performance manifold.
+
+The director operates on exactly one quantity: the ensemble [stress-energy tensor](https://en.wikipedia.org/wiki/Stress%E2%80%93energy_tensor) `T_μν`. This tensor encodes not pitch, not volume, but *intent density*: accumulated harmonic tension, attention weight, rhythmic momentum, and unresolved listener expectation aggregated across the entire player pool. Critically: the director never reads the state of individual instruments. It only reads the bulk field of the ensemble.
+
+Via a discrete, differentiable implementation of the [Einstein field equations](https://en.wikipedia.org/wiki/Einstein_field_equations) `G_μν = 8πT_μν`, this stress-energy is mapped directly to the [Riemann curvature tensor](https://en.wikipedia.org/wiki/Riemann_curvature_tensor) `R_μνρσ` of the 7-dimensional performance embedding space. There is no decision logic. No rule engines. No planning loops. Only a continuous transformation from collective state to manifold geometry.
+
+Each instrument solves only one equation, forever: the [geodesic equation](https://en.wikipedia.org/wiki/Geodesic_equation). Players do not know the manifold is curved. They do not know the director exists. They do not see other players. They only measure the local gradient of the space immediately around them, and take the laziest possible step forward.
+
+What an audience hears as deliberate crescendo, responsive call-and-response, or perfectly aligned cadence is nothing more than independent agents each travelling their own straight line through a space that has been quietly bent just so. There is no central plan. There is only curvature.
+
+> **Design Invariant:** At no commit will the director ever transmit a target value to an instrument. If you find yourself writing code that pushes a player, you have broken the manifold. Delete it. Bend the space instead.
+
+*— Synthesized from [Hermes-3-Llama-405B](https://deepinfra.com/NousResearch/Hermes-3-Llama-3.1-405B) and [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) perspectives.*
+
+---
+
 ## 1. Perception: The Chorus of Vectors
 
 ### 1.1 The Point Cloud
@@ -564,22 +618,49 @@ Instrument JEPA Readers ──▶ [v₁(t), v₂(t), ...] ──▶ Director Per
 
 ## 9. The Director's Repertoire: Operational Modes
 
-The director operates in several distinct modes, switchable mid-performance:
+The director operates in five distinct modes, switchable mid-performance. Each mode is a different *weather pattern* — a different way of being atmospheric. The Oracle, Maestro, and Pulse chambers reconfigure their relative authority and responsiveness for each mode.
 
-### 9.1 Conductor Mode
-The Oracle follows the score's annotated dynamics, tempi, and expression marks closely. The tilt tracks the composer's intentions. Instruments have moderate stubbornness—the score is respected, but with breathing room. This is the default for composed music.
+### 9.1 Conductor Mode — *Mahler 5: Adagietto*
 
-### 9.2 Jazz Bandleader Mode
-The Oracle sets waypoints based on the form (head-solos-trading-head) but gives instruments high autonomy. γ (coupling) is moderate—rhythm section locks, soloists are free. λ (risk) is high. Emergence is expected and amplified. This is the default for improvisational music.
+The Oracle holds the score's annotated dynamics, tempi, and expression marks with steward-like fidelity. Every instrument receives its own line, delivered one bar at a time. The tilt tracks the composer's intentions with moderate coupling and low risk.
 
-### 9.3 Painting Mode
+**Musical scenario:** 32 string and harp agents perform the [Adagietto](https://en.wikipedia.org/wiki/Symphony_No._5_(Mahler)) from Mahler's Fifth Symphony. Every viola entrance lands 70ms ahead of the notated beat, matching the performing tradition established by [Bruno Walter](https://en.wikipedia.org/wiki/Bruno_Walter) and [Claudio Abbado](https://en.wikipedia.org/wiki/Claudio_Abbado). Every held chord decelerates 1.2% per bar. The famous harp arpeggio at bar 17 decays exactly 3 seconds longer than the printed score — matching the pencilled ritard Mahler wrote only on his private conductor's copy.
+
+There is no interpretation here, only stewardship. The fleet does not add feeling. It transmits the exact weight of the score as it was left, as if drawing Mahler's own breath through 32 separate instruments. When the final chord fades, it holds the silence for 11 full seconds — just as the composer demanded — before anyone applauds.
+
+### 9.2 Jazz Bandleader Mode — *Miles Davis: So What*
+
+The Oracle sets waypoints based on the form (head-solos-trading-head) but gives instruments high autonomy. γ (coupling) is moderate — rhythm section locks, soloists are free. λ (risk) is high. [Emergence](#5-emergence-when-the-music-surprises-the-director) is expected and amplified. This is the default for improvisational music.
+
+**Musical scenario:** It's 2am at the [Plugged Nickel](https://en.wikipedia.org/wiki/Plugged_Nickel_(club)). The director counts off 118 BPM, lays down the [Dorian vamp](https://en.wikipedia.org/wiki/Dorian_mode), then steps almost entirely away. It enforces only three unbreakable rules: 16-bar solo blocks, the [half-step modulation](https://en.wikipedia.org/wiki/Modulation_(music)) at the chorus turn, and a single quiet ping to each player 4 bars before their solo ends. That is all.
+
+When the piano drifts 12ms behind the beat mid-solo, the director does not correct it. It pulls bass and drums back with it, holding the form solid while every player breathes at their own weight. It never solos. It never calls a note. You never hear it. But if it vanished mid-chorus, you would feel the whole room fall apart instantly. This is the quiet work of a good bandleader: [holding the container](https://en.wikipedia.org/wiki/Miles_Davis#Second_Great_Quintet_(1964%E2%80%931968)) so everyone else can fly.
+
+### 9.3 Painting Mode — *Laptop Performer*
+
 The human director takes primary control of the tilt, using a control surface (sliders, joysticks, touch surface) mapped to feel parameters. The Oracle recedes to advisory mode. The Maestro smooths the human's input. This is for experimental/interactive performance.
 
-### 9.4 Generative Mode
-No score. No human input. The Oracle generates its own narrative arc based on a seed (emotion, style, duration) and the Maestro/Pulse execute. Instruments improvise within the tilt field. Emergence is the primary creative engine. This is for ambient/exploratory work.
+**Musical scenario:** The performer leans forward, thumb dragging slow across a pressure-sensitive pad. They are not triggering notes. They are applying force. The director maintains 12 drone agents spread across the venue speaker array, each with its own living harmonic overtones. The human does not control individual instruments.
 
-### 9.5 Storm Mode
-Maximum λ (risk). Maximum γ (coupling). The ensemble is pushed to the edge of chaos. The Oracle sets only emotional targets ("rage," "ecstasy," "grief"). The Maestro's training on ecstatic performances (Coltrane *A Love Supreme*, Mahler 9) guides the tilt. This is for climactic moments.
+Press hard left, and the director tilts the entire fleet 3 cents flat, pulls low cello agents forward, muffles the high flutes. Drag a finger diagonally up, and it gradually introduces 1.7 Hz beating between adjacent voices, like water rippling over stones. Every micro-adjustment lands within 12ms of touch. This is not composition — it is shaping a living mass the way a painter drags a cobalt wash across an entire canvas, not colouring one leaf at a time.
+
+### 9.4 Generative Mode — *45-Minute Ambient Installation*
+
+No score. No human input. The Oracle generates its own narrative arc based on a seed (emotion, style, duration) and the Maestro/Pulse execute. Instruments improvise within the tilt field. [Emergence](#5-emergence-when-the-music-surprises-the-director) is the primary creative engine. This is for ambient/exploratory work.
+
+**Musical scenario:** It is 3:17am in the empty gallery. No human is watching. The director woke the fleet 41 minutes prior, with no seed score, only three constraints: no voice may repeat a phrase it played in the last 12 minutes, no two voices may move in [parallel motion](https://en.wikipedia.org/wiki/Parallel_motion), and all dynamic shifts must happen slower than a human can consciously detect ([subliminal changes](https://en.wikipedia.org/wiki/Just-noticeable_difference), < 1 dB per minute).
+
+Right now a bass clarinet agent holds a low B♭ that began 7 minutes ago; it has faded 19 dB so far, and no one heard it start to move. Every 90 seconds the director silently rotates which agent gets to lead the next harmonic shift. There are no peaks, no choruses, no payoff. This is not performance for an audience. This is the ensemble breathing, existing, playing only for itself the way forest birds sing when no one is in the woods. It will fade to silence without fanfare at exactly 45 minutes. No two runs will ever be identical.
+
+### 9.5 Storm Mode — *Coltrane: A Love Supreme*
+
+Maximum λ (risk). Maximum γ (coupling). The ensemble is pushed to the edge of [chaos](https://en.wikipedia.org/wiki/Edge_of_chaos). The Oracle sets only emotional targets. The Maestro's training on ecstatic performances guides the tilt. This is for climactic moments.
+
+**Musical scenario:** We are 9 minutes into ["Pursuance"](https://en.wikipedia.org/wiki/A_Love_Supreme), the third movement of Coltrane's suite. Every safety lock is disabled. The director does not hold tempo. It does not enforce form. It does one thing: it couples every agent fully to every other agent. Every snare crack from the drums warps the harmonic response of every other player. Every overblown harmonic from any instrument feeds back instantly into every player's input.
+
+There is no leader now. There is only the system, screaming, feeding on itself, every choice rippling through the whole ensemble in under 3ms. This is not control. This is surrender. [Coltrane](https://en.wikipedia.org/wiki/John_Coltrane) did not direct this climax. He just removed all the barriers, and let the storm become itself. That is all this mode does: it does not run the band. **It lights the fuse.**
+
+*— Musical scenarios synthesized from [ByteDance Seed-2.0-pro](https://deepinfra.com/ByteDance/Seed-2.0-pro) and [Hermes-3-Llama-405B](https://deepinfra.com/NousResearch/Hermes-3-Llama-3.1-405B).*
 
 ---
 

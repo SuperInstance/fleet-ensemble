@@ -22,7 +22,7 @@ use tracing::{debug, info};
 
 use crate::protocol::{CnsPacket, EMBEDDING_DIM};
 
-use voice::{Personality, VoiceClass};
+pub use voice::{Personality, VoiceClass};
 
 const PERCEPTION_INTERVAL: Duration = Duration::from_millis(16); // 62.5 Hz
 const PULSE_INTERVAL: Duration = Duration::from_millis(125);
@@ -57,6 +57,8 @@ impl InstrumentAgent {
             id, voice_class, personality.alignment_gain
         );
 
+        let alignment = alignment::AlignmentState::new(&personality);
+
         Self {
             id,
             voice_class,
@@ -65,7 +67,7 @@ impl InstrumentAgent {
             ensemble_embedding: [0.0; EMBEDDING_DIM],
             prediction_error: 0.0,
             current_tilt: None,
-            alignment: alignment::AlignmentState::new(&personality),
+            alignment,
             listening: listening::ListeningState::new(),
         }
     }
@@ -134,13 +136,14 @@ impl InstrumentAgent {
         if !peer_embeddings.is_empty() {
             // Simple average for the stub
             let mut avg = [0.0f32; EMBEDDING_DIM];
-            for emb in peer_embeddings {
+            let count = peer_embeddings.len() as f32;
+            for emb in &peer_embeddings {
                 for (i, &val) in emb.iter().enumerate() {
                     avg[i] += val;
                 }
             }
             for val in &mut avg {
-                *val /= peer_embeddings.len() as f32;
+                *val /= count;
             }
             self.ensemble_embedding = avg;
         }

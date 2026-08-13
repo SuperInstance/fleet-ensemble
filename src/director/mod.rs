@@ -14,14 +14,14 @@ pub mod modes;
 pub mod perception;
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use dashmap::DashMap;
 use tokio::sync::broadcast;
 use tracing::{debug, info};
 
 use crate::protocol::{
-    CnsPacket, EMBEDDING_DIM, EmergenceFlag, FeelSpace, FeelTiltPayload,
+    CnsPacket, EMBEDDING_DIM, FeelSpace, FeelTiltPayload,
 };
 
 const PULSE_INTERVAL: Duration = Duration::from_millis(125);

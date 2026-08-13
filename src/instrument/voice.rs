@@ -129,7 +129,7 @@ impl VoiceClass {
     ///
     /// Returns Some(response) if a reflex fires, None otherwise.
     /// This is the <10ms fast path — no neural inference.
-    pub fn check_reflex(&self, source_id: u16, pitch: u8, _velocity: u8) -> Option<ReflexResponse> {
+    pub fn check_reflex(&self, _source_id: u16, pitch: u8, _velocity: u8) -> Option<ReflexResponse> {
         match self {
             Self::Piano => {
                 // If bass plays a root note, piano can drop the root from its chord

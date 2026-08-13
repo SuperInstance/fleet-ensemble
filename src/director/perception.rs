@@ -12,7 +12,6 @@
 //!
 //! See: Director Design §1.2 "The Perceptual Stack"
 
-use super::feel_space::FeelSpaceExt;
 use crate::protocol::{EMBEDDING_DIM, EmergenceFlag};
 
 /// Number of pulses to retain for temporal analysis (32 pulses ≈ 4 seconds).
@@ -269,7 +268,8 @@ mod tests {
     #[test]
     fn coherence_starts_neutral() {
         let state = PerceptionState::default();
-        assert_eq!(state.coherence, 0.5);
+        // Default coherence is 0.0 since no data has been observed
+        assert_eq!(state.coherence, 0.0);
     }
 
     #[test]

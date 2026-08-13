@@ -1,0 +1,36 @@
+[Unit]
+Description=Fleet Ensemble — Agentic Music Performance System
+Documentation=https://github.com/SuperInstance/fleet-ensemble
+After=network.target sound.target
+Wants=jack.service
+
+[Service]
+Type=simple
+User=eileen
+Group=audio
+WorkingDirectory=/home/eileen/projects/fleet-ensemble
+
+# Environment
+Environment=RUST_LOG=info
+Environment=FLEET_ENSEMBLE_CONFIG=/etc/fleet-ensemble/config.toml
+
+# Start
+ExecStart=/home/eileen/projects/fleet-ensemble/target/release/fleet-ensemble
+
+# Restart policy
+Restart=always
+RestartSec=3
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=200%
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/eileen/projects/fleet-ensemble
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
