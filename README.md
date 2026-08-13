@@ -220,6 +220,280 @@ Each instrument has a distinct [personality fingerprint](docs/instrument-agent-d
 
 ---
 
+## Quick Start
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install) 1.75+ (2021 edition)
+- [fleet-gateway](https://github.com/SuperInstance/fleet-gateway) for LLM oracle calls
+- A trained JEPA encoder from [fleet-jepa-midi](https://github.com/SuperInstance/fleet-jepa-midi)
+- MIDI input/output via [virtual MIDI port](https://en.wikipedia.org/wiki/MIDI) or file
+
+### Build
+
+```bash
+git clone https://github.com/SuperInstance/fleet-ensemble.git
+cd fleet-ensemble
+cargo build --release
+```
+
+### Run
+
+```bash
+# Start the ensemble with a MIDI score
+./target/release/fleet-ensemble --score path/to/score.mid --bpm 120
+
+# With specific instruments
+./target/release/fleet-ensemble \
+  --score path/to/score.mid \
+  --instruments piano,bass,drums \
+  --bpm 120
+```
+
+---
+
+## Key Concepts
+
+### The Seven Feel Parameters
+
+The director communicates with instruments through a seven-dimensional [feel space](docs/director-design.md#22-the-seven-feel-parameters). Each parameter is a continuous value that the director adjusts in real-time:
+
+| Parameter | Symbol | Range | What It Controls |
+|-----------|--------|-------|------------------|
+| **Pulse density** | ρ | [0, 1] | How many notes per pulse — sparse vs. dense |
+| **Energy flux** | ε | [0, 1] | Dynamic intensity — quiet vs. loud |
+| **Harmonic tilt** | σ | [-1, 1] | Brightness — dark/low vs. bright/high |
+| **Temporal asymmetry** | τ | [-1, 1] | Time feel — behind vs. ahead of the beat |
+| **Coupling pressure** | γ | [0, 1] | How much instruments should align with each other |
+| **Risk appetite** | λ | [0, 1] | How much stochastic exploration is allowed |
+| **Articulation** | Φ | [0, 1] | Note shape — staccato vs. legato |
+
+These parameters are sent as `FEEL_TILT` packets on the [CNS protocol bus](https://github.com/SuperInstance/cns-bridge). Each instrument receives the global tilt plus per-instrument offsets.
+
+### The Tri-Chamber Architecture
+
+The director doesn't use a single brain. It uses three cognitive chambers, each operating at a different timescale:
+
+1. **[Oracle (LLM)](docs/director-design.md#41-the-oracle-llm--phrase-level-1-4-bars)** — Thinks in musical language ("build tension," "quote the bridge"). Called every 1-4 bars. This is where musical knowledge lives.
+
+2. **[Maestro (Trained Model)](docs/director-design.md#42-the-maestro-trained--pulse-level-125ms)** — A trained [neural network](https://en.wikipedia.org/wiki/Neural_network) that perceives the ensemble's current state at pulse rate. This is where musical feel lives — the JEPA.
+
+3. **[Pulse (Algorithmic)](docs/director-design.md#43-the-pulse-algorithmic--sub-millisecond)** — Pure math running at sub-millisecond resolution. Physics-based models of timing, dynamics, and articulation. This is where precision lives.
+
+### Alignment Mechanics
+
+Each instrument has an [alignment engine](docs/instrument-agent-design.md#5-alignment-mechanics) that adjusts its playing based on the director's feel parameters and the ensemble's current state. The alignment gain determines how strongly an instrument follows the director vs. plays its own thing:
+
+- **Low alignment gain (0.25)** — Independent, conversational. Like [Herbie Hancock](https://en.wikipedia.org/wiki/Herbie_Hancock) comping behind a soloist — drops notes, leaves space, responds.
+- **High alignment gain (0.9)** — Tight, foundational. Like [Tony Williams](https://en.wikipedia.org/wiki/Tony_Williams_(drummer)) driving the band — defines the time, everyone else adjusts.
+
+The alignment engine uses [stochastic differential equations (SDEs)](https://en.wikipedia.org/wiki/Stochastic_differential_equation) to smoothly interpolate between director-guided and self-directed behavior:
+
+$$dX_t = \gamma (\mu_{director} - X_t)\,dt + \lambda\,dW_t$$
+
+where $\gamma$ is the coupling pressure, $\mu_{director}$ is the director's target, and $\lambda \cdot dW_t$ is [Brownian motion](https://en.wikipedia.org/wiki/Brownian_motion) exploration.
+
+---
+
+## API Reference
+
+### Director
+
+```rust
+use fleet_ensemble::Director;
+
+let mut director = Director::new()
+    .jepa_encoder("weights/jepa_encoder.pt")?
+    .gateway("http://127.0.0.1:8787/v1")
+    .feel_space(FeelSpace::default());
+
+// Run the director loop
+director.run(&score, &mut midi_output).await?;
+```
+
+### Instrument Agent
+
+```rust
+use fleet_ensemble::InstrumentAgent;
+
+let piano = InstrumentAgent::new("piano")
+    .voice(Voice::piano())
+    .alignment_gain(0.25)      // conversational
+    .reflex_latency(Duration::from_millis(10));
+
+piano.run(&mut ensemble_bus).await?;
+```
+
+### CNS Protocol Bus
+
+Instruments and the director communicate via the [CNS protocol bus](https://github.com/SuperInstance/cns-bridge):
+
+```rust
+// Director broadcasts feel parameters
+bus.broadcast(FeelTilt {
+    rho: 0.6, epsilon: 0.7, sigma: 0.3,
+    tau: -0.1, gamma: 0.5, lambda: 0.3, phi: 0.6,
+    per_instrument: HashMap::from([
+        ("piano", Offset { rho: -0.1, ..Default::default() }),
+        ("drums", Offset { tau: 0.05, ..Default::default() }),
+    ]),
+}).await?;
+
+// Instrument responds
+let tilt = bus.receive().await?;
+let adjusted_notes = instrument.align(notes, &tilt);
+```
+
+---
+
+## Configuration
+
+### Director Configuration
+
+```toml
+[director]
+tempo = 120
+pulse_rate_hz = 8          # 16th notes at 120 BPM
+phrase_bars = 4            # LLM called every 4 bars
+
+[director.oracle]
+model = "deepseek-chat"
+gateway = "http://127.0.0.1:8787/v1"
+max_directives = 5
+
+[director.maestro]
+encoder_path = "weights/jepa_encoder.pt"
+smoothing = 0.8            # EMA smoothing factor
+
+[director.pulse]
+tick_rate_hz = 1000        # 1 kHz internal clock
+```
+
+### Instrument Configuration
+
+```toml
+[instruments.piano]
+program = 0                # GM Acoustic Grand Piano
+alignment_gain = 0.25
+polyphony = 8
+register_range = [21, 108] # A0 to C8
+
+[instruments.bass]
+program = 33               # GM Electric Bass
+alignment_gain = 0.7
+polyphony = 1
+register_range = [28, 60]
+
+[instruments.drums]
+program = 0                # drums use channel 10
+alignment_gain = 0.9
+is_drum = true
+```
+
+---
+
+## Testing
+
+```bash
+cargo test        # Unit tests: alignment math, CNS protocol, voice config
+cargo test --test integration  # Multi-agent integration tests
+cargo bench      # Performance: alignment latency, pulse tick timing
+```
+
+Tests verify:
+- Alignment engine produces valid musical output under all feel parameter combinations
+- CNS protocol packets are correctly serialized and deserialized
+- Instrument agents respect polyphony limits and register ranges
+- Director's tri-chamber switches correctly between Oracle/Maestro/Pulse
+- 1 kHz tick loop maintains timing under load
+
+---
+
+## Deployment
+
+### Local Real-Time
+
+Fleet Ensemble runs locally — the 1 kHz tick loop and sub-millisecond algorithmic engine demand it. The LLM Oracle can be remote (via fleet-gateway), but everything else must be local.
+
+### Systemd Service
+
+```bash
+[Unit]
+Description=Fleet Ensemble — Agentic Performance System
+After=fleet-gateway.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/fleet-ensemble
+ExecStart=%h/projects/fleet-ensemble/target/release/fleet-ensemble --score %h/scores/current.mid
+Restart=always
+MemoryMax=1G
+
+[Install]
+WantedBy=default.target
+```
+
+### DAW Integration
+
+Connect Fleet Ensemble to your [DAW](https://en.wikipedia.org/wiki/Digital_audio_workstation) via [virtual MIDI ports](https://help.ableton.com/hc/en-us/articles/209071169-Creating-and-using-virtual-MIDI-ports):
+
+1. Create a virtual MIDI input (e.g., `ensemble_in`)
+2. Create a virtual MIDI output (e.g., `ensemble_out`)
+3. Point Fleet Ensemble at those ports
+4. Route MIDI tracks in your DAW to/from those ports
+
+---
+
+## Further Reading — Curated Bibliography
+
+### For Developers
+
+- [Director Design](docs/director-design.md) — the full director architecture specification
+- [Instrument Agent Design](docs/instrument-agent-design.md) — the instrument agent engineering spec
+- [CNS Protocol (cns-bridge)](https://github.com/SuperInstance/cns-bridge) — the communication bus
+- [fleet-jepa-midi Design Docs](https://github.com/SuperInstance/fleet-jepa-midi/tree/main/docs) — the JEPA encoder this system uses
+- [MIDI 1.0 Specification](https://www.midi.org/specifications-old/item/the-midi-1-0-specification)
+- [General MIDI Standard](https://en.wikipedia.org/wiki/General_MIDI) — instrument program numbers
+- [Stochastic Differential Equations in Rust](https://docs.rs/rand/latest/rand/) — RNG for SDE solving
+
+### For Musicians
+
+- [Miles Davis Second Quintet (Wikipedia)](https://en.wikipedia.org/wiki/Miles_Davis_Quintet) — the musical reference for ensemble interaction
+- [Herbie Hancock](https://en.wikipedia.org/wiki/Herbie_Hancock) — conversational comping
+- [Bill Evans Trio](https://en.wikipedia.org/wiki/Bill_Evans#Trio) — democratic interplay
+- [Tony Williams](https://en.wikipedia.org/wiki/Tony_Williams_(drummer)) — push and pull of time
+- [Elvin Jones](https://en.wikipedia.org/wiki/Elvin_Jones) — polyrhythmic foundation
+- [Ron Carter](https://en.wikipedia.org/wiki/Ron_Carter) — the anchor
+- [The Jazz Process](https://www.amazon.com/Jazz-Process-Adrian-Cho/dp/0321638354) by Adrian Cho — collaboration lessons from jazz
+
+### For Mathematicians
+
+- [Stochastic Differential Equations (Wikipedia)](https://en.wikipedia.org/wiki/Stochastic_differential_equation) — the math of the alignment engine
+- [Brownian Motion (Wikipedia)](https://en.wikipedia.org/wiki/Brownian_motion) — the stochastic exploration term
+- [Lorenz System (Wikipedia)](https://en.wikipedia.org/wiki/Lorenz_system) — atmospheric chaos theory inspiring the director
+- [Navier-Stokes Equations (Wikipedia)](https://en.wikipedia.org/wiki/Navier%E2%80%93Stokes_equations) — fluid dynamics as ensemble metaphor
+- [Marangoni Effect (Wikipedia)](https://en.wikipedia.org/wiki/Marangoni_effect) — surface tension gradients = harmonic rotation
+- [Exponential Moving Average (Wikipedia)](https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average) — smoothing and decoupling
+- [Game Theory (Wikipedia)](https://en.wikipedia.org/wiki/Game_theory) — multi-agent alignment as cooperative game
+
+### For Engineers
+
+- [SDE Numerical Methods (Euler-Maruyama)](https://en.wikipedia.org/wiki/Euler%E2%80%93Maruyama_method) — solving SDEs in discrete time
+- [Real-Time Audio Programming](https://www.rossbencina.com/code/real-time-audio-programming-101-time-waits-for-nobody) — why the 1 kHz tick matters
+- [MIDI Clock vs. MIDI Time Code](https://en.wikipedia.org/wiki/MIDI_clock) — timing synchronization
+- [Jitter Buffer (Wikipedia)](https://en.wikipedia.org/wiki/Jitter_buffer) — handling timing variability
+- [Systemd Services](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html) — production deployment
+
+### For Educators
+
+- [Agentic AI (Wikipedia)](https://en.wikipedia.org/wiki/Agentic_AI) — the paradigm this system exemplifies
+- [Compiler Theory (Wikipedia)](https://en.wikipedia.org/wiki/Compiler) — the compiler → performer analogy
+- [Emergence (Wikipedia)](https://en.wikipedia.org/wiki/Emergence) — how complex behavior arises from simple agents
+- [Language Games (Wittgenstein)](https://plato.stanford.edu/entries/wittgenstein/#LangGame) — meaning is in the playing
+- [Bob Ross Wet-on-Wet Technique](https://en.wikipedia.org/wiki/Bob_Ross#Wet-on-wet_oil_painting) — the canvas metaphor
+
+---
+
 ## Status
 
 **Concept phase.** Repo created Aug 13, 2026. Design in progress. Architecture is fully specified; implementation begins next.
