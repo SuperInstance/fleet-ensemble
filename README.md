@@ -4,6 +4,8 @@
 
 > *Like fine paint on liquid white base paint — each color finds its edge in relation to the others, not by command, but by resonance.*
 
+<p align="center"><img src="assets/images/hero.jpg" width="700" alt="The ensemble awaits the downbeat — sextant, radio, sonar, and typewriter on the night deck"></p>
+
 ---
 
 ## The Vision
